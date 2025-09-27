@@ -21,6 +21,62 @@
         </button>
       </div>
     </div>
+
+    <!-- Game Mode Selection -->
+    <div class="game-mode-section">
+      <h3 class="mode-title">Game Mode</h3>
+
+      <!-- Favorite Modes -->
+      <div class="mode-options">
+        <label v-for="mode in favoriteModesData" :key="mode.id"
+               class="mode-option"
+               :class="{ active: selectedMode === mode.id }">
+          <input v-model="selectedMode" type="radio" :value="mode.id" class="mode-radio" />
+          <div class="mode-content">
+            <div class="mode-icon">{{ mode.icon }}</div>
+            <div class="mode-info">
+              <div class="mode-name">{{ mode.name }}</div>
+              <div class="mode-description">{{ getModeFriendlyDescription(mode) }}</div>
+            </div>
+          </div>
+        </label>
+
+        <!-- More Modes Button -->
+        <button @click="showModeSelector = true" class="more-modes-btn">
+          <div class="mode-icon">🎮</div>
+          <div class="mode-info">
+            <div class="mode-name">More Modes</div>
+            <div class="mode-description">Browse all game modes</div>
+          </div>
+        </button>
+      </div>
+
+      <!-- Speed Mode Time Adjustment -->
+      <div v-if="selectedMode === 'speed'" class="time-adjustment">
+        <label class="time-label">Timer Duration: {{ speedModeTime }} seconds</label>
+        <input
+          v-model="speedModeTime"
+          type="range"
+          min="0.5"
+          max="30"
+          step="0.5"
+          class="time-slider"
+        />
+        <div class="time-marks">
+          <span>0.5s</span>
+          <span>15s</span>
+          <span>30s</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Mode Selector Popup -->
+    <GameModeSelector
+      :show-selector="showModeSelector"
+      @close="showModeSelector = false"
+      @mode-selected="handleModeSelected"
+    />
+
     <button @click="handleStartGame" class="start-btn" :disabled="activePlayers.length < 2">
       <span class="btn-text">Ignite the Game</span>
       <span class="player-count">{{ activePlayers.length }} Creative Minds</span>
@@ -29,11 +85,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import XIcon from './icons/XIcon.vue'
 import OIcon from './icons/OIcon.vue'
 import SquareIcon from './icons/SquareIcon.vue'
 import StarIcon from './icons/StarIcon.vue'
+import GameModeSelector from './GameModeSelector.vue'
+
+interface GameMode {
+  id: string
+  name: string
+  icon: string
+  description: string
+  timeLimit?: number
+}
 
 export interface Player {
   name: string
@@ -41,9 +106,28 @@ export interface Player {
   active: boolean
 }
 
+export interface GameSettings {
+  players: Player[]
+  mode: 'classic' | 'speed' | 'gravity' | 'kingofthehill'
+  timeLimit?: number
+}
+
 const emit = defineEmits<{
-  startGame: [players: Player[]]
+  startGame: [settings: GameSettings]
 }>()
+
+const selectedMode = ref<'classic' | 'speed' | 'gravity' | 'kingofthehill'>('classic')
+const speedModeTime = ref<number>(5)
+const showModeSelector = ref(false)
+const favorites = ref<string[]>(['classic', 'speed', 'gravity'])
+
+// Available game modes
+const availableModes: GameMode[] = [
+  { id: 'classic', name: 'Classic Mode', icon: '🎯', description: 'Unlimited time to strategize' },
+  { id: 'speed', name: 'Speed Mode', icon: '⚡', description: 'seconds per move', timeLimit: 15 },
+  { id: 'gravity', name: 'Gravity Mode', icon: '⬇️', description: 'Pieces fall down like Connect 4' },
+  { id: 'kingofthehill', name: 'King of the Hill', icon: '👑', description: 'Control center area to win' }
+]
 
 const players = ref<Player[]>([
   { name: 'Player 1', symbol: 'X', active: true },
@@ -53,7 +137,7 @@ const players = ref<Player[]>([
 ])
 
 const allPlayerSlots = computed(() => {
-  const filledPlayers = players.value.filter((_, index) => index < 2 || players.value[index].name)
+  const filledPlayers = players.value.filter((_, index) => index < 2 || players.value[index]?.name)
   const nextEmptySlot = players.value.find((p, index) => index >= 2 && !p.name)
 
   if (nextEmptySlot && filledPlayers.length < 4) {
@@ -66,6 +150,8 @@ const activePlayers = computed(() => players.value.filter(p => p.active))
 
 const handlePlayerNameInput = (index: number) => {
   const player = players.value[index]
+  if (!player) return
+
   player.active = player.name.trim() !== ''
 
   if (index >= 2 && player.active) {
@@ -86,17 +172,53 @@ const handlePlayerNameInput = (index: number) => {
 }
 
 const clearPlayer = (index: number) => {
-  if (index >= 2) {
+  if (index >= 2 && players.value[index]) {
     players.value[index].name = ''
     players.value[index].active = false
   }
 }
 
-const handleStartGame = () => {
-  if (activePlayers.value.length >= 2) {
-    emit('startGame', [...activePlayers.value])
+// Computed properties for favorites
+const favoriteModesData = computed(() => {
+  return availableModes.filter(mode => favorites.value.includes(mode.id))
+})
+
+const getModeFriendlyDescription = (mode: GameMode) => {
+  if (mode.id === 'speed') {
+    return `${speedModeTime.value} seconds per move`
+  }
+  return mode.description
+}
+
+const handleModeSelected = (mode: GameMode) => {
+  selectedMode.value = mode.id as any
+  if (mode.timeLimit) {
+    speedModeTime.value = mode.timeLimit
   }
 }
+
+const handleStartGame = () => {
+  if (activePlayers.value.length >= 2) {
+    const settings: GameSettings = {
+      players: [...activePlayers.value],
+      mode: selectedMode.value,
+      timeLimit: selectedMode.value === 'speed' ? speedModeTime.value : undefined
+    }
+    emit('startGame', settings)
+  }
+}
+
+// Load favorites from localStorage
+onMounted(() => {
+  const saved = localStorage.getItem('favoriteModes')
+  if (saved) {
+    try {
+      favorites.value = JSON.parse(saved)
+    } catch (e) {
+      console.warn('Failed to parse saved favorites')
+    }
+  }
+})
 </script>
 
 <style scoped>
@@ -377,5 +499,268 @@ const handleStartGame = () => {
   box-shadow: none;
   animation: none;
   opacity: 0.6;
+}
+
+/* Game Mode Selection Styles */
+.game-mode-section {
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+.mode-title {
+  text-align: center;
+  margin: 0 0 1rem 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  background: linear-gradient(90deg, #8a2be2, #ff7730);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.mode-options {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.mode-option {
+  flex: 1;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+  min-width: 160px;
+}
+
+.mode-radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(240, 240, 255, 0.6));
+  border: 2px solid rgba(138, 43, 226, 0.2);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-option.active .mode-content {
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.1), rgba(255, 119, 48, 0.05));
+  border-color: rgba(138, 43, 226, 0.6);
+  box-shadow: 0 0 20px rgba(138, 43, 226, 0.3);
+  transform: scale(1.02);
+}
+
+.mode-option:hover .mode-content {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 240, 255, 0.8));
+  border-color: rgba(138, 43, 226, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(138, 43, 226, 0.2);
+}
+
+.mode-icon {
+  font-size: 2rem;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.1), rgba(255, 119, 48, 0.1));
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.mode-option.active .mode-icon {
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.2), rgba(255, 119, 48, 0.2));
+  transform: scale(1.1);
+}
+
+.mode-info {
+  flex: 1;
+  text-align: left;
+}
+
+.mode-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.mode-option.active .mode-name {
+  color: #8a2be2;
+}
+
+.mode-description {
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
+}
+
+.mode-option.active .mode-description {
+  color: #555;
+}
+
+/* More Modes Button */
+.more-modes-btn {
+  flex: 1;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+  min-width: 160px;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.more-modes-btn .mode-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(72, 219, 251, 0.1), rgba(0, 171, 227, 0.05));
+  border: 2px dashed rgba(72, 219, 251, 0.4);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.more-modes-btn:hover .mode-content {
+  background: linear-gradient(135deg, rgba(72, 219, 251, 0.2), rgba(0, 171, 227, 0.1));
+  border-color: rgba(72, 219, 251, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(72, 219, 251, 0.3);
+}
+
+.more-modes-btn .mode-icon {
+  font-size: 2rem;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(72, 219, 251, 0.15), rgba(0, 171, 227, 0.1));
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.more-modes-btn:hover .mode-icon {
+  background: linear-gradient(135deg, rgba(72, 219, 251, 0.25), rgba(0, 171, 227, 0.15));
+  transform: scale(1.1);
+}
+
+.more-modes-btn .mode-info {
+  flex: 1;
+  text-align: left;
+}
+
+.more-modes-btn .mode-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.more-modes-btn .mode-description {
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
+}
+
+/* Time Adjustment Styles */
+.time-adjustment {
+  width: 100%;
+  padding: 1rem;
+  margin-top: 1rem;
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.05), rgba(255, 119, 48, 0.03));
+  border: 1px solid rgba(138, 43, 226, 0.2);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: slideInDown 0.3s ease-out;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.time-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #8a2be2;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.time-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #ff4757 0%, #ff6b47 20%, #ffa500 50%, #48dbfb 80%, #0abde3 100%);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.time-slider:hover {
+  height: 10px;
+  box-shadow: 0 2px 8px rgba(138, 43, 226, 0.3);
+}
+
+.time-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8a2be2, #ff7730);
+  border: 2px solid white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(138, 43, 226, 0.3);
+  transition: all 0.3s ease;
+}
+
+.time-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(138, 43, 226, 0.5);
+}
+
+.time-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8a2be2, #ff7730);
+  border: 2px solid white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(138, 43, 226, 0.3);
+  transition: all 0.3s ease;
+}
+
+.time-marks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
+  padding: 0 0.5rem;
 }
 </style>

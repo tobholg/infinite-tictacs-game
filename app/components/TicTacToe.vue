@@ -13,7 +13,7 @@
 
       <StartMenu v-if="!gameStarted" @start-game="handleStartGame" />
 
-      <GameBoard v-else ref="gameBoardRef" :players="activePlayers" @back-to-menu="handleBackToMenu" />
+      <GameBoard v-else ref="gameBoardRef" :players="activePlayers" :game-mode="gameMode" :time-limit="timeLimit" @back-to-menu="handleBackToMenu" />
 
       <!-- Top Menu Dropdown -->
       <div class="dropdown-container" v-if="gameStarted">
@@ -34,6 +34,7 @@
         </div>
       </div>
 
+
       <div class="creative-quote" v-if="!gameStarted">
         "Every move expands the universe of possibility"
       </div>
@@ -51,15 +52,19 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import StartMenu from './StartMenu.vue'
 import GameBoard from './GameBoard.vue'
-import type { Player } from './StartMenu.vue'
+import type { Player, GameSettings } from './StartMenu.vue'
 
 const gameStarted = ref(false)
 const activePlayers = ref<Player[]>([])
+const gameMode = ref<'classic' | 'speed' | 'gravity' | 'kingofthehill'>('classic')
+const timeLimit = ref<number | undefined>(undefined)
 const dropdownOpen = ref(false)
 const gameBoardRef = ref<any>(null)
 
-const handleStartGame = (players: Player[]) => {
-  activePlayers.value = players
+const handleStartGame = (settings: GameSettings) => {
+  activePlayers.value = settings.players
+  gameMode.value = settings.mode
+  timeLimit.value = settings.timeLimit
   gameStarted.value = true
 }
 
