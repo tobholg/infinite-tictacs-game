@@ -43,10 +43,10 @@
 
         <!-- More Modes Button -->
         <button @click="showModeSelector = true" class="more-modes-btn">
-          <div class="mode-icon">🎮</div>
+          <div class="mode-icon">🏛️</div>
           <div class="mode-info">
-            <div class="mode-name">More Modes</div>
-            <div class="mode-description">Browse all game modes</div>
+            <div class="mode-name">Parliament</div>
+            <div class="mode-description">Enter the mode parliament</div>
           </div>
         </button>
       </div>
@@ -70,8 +70,8 @@
       </div>
     </div>
 
-    <!-- Game Mode Selector Popup -->
-    <GameModeSelector
+    <!-- Game Mode Parliament Popup -->
+    <GameModeParliament
       :show-selector="showModeSelector"
       @close="showModeSelector = false"
       @mode-selected="handleModeSelected"
@@ -90,7 +90,7 @@ import XIcon from './icons/XIcon.vue'
 import OIcon from './icons/OIcon.vue'
 import SquareIcon from './icons/SquareIcon.vue'
 import StarIcon from './icons/StarIcon.vue'
-import GameModeSelector from './GameModeSelector.vue'
+import GameModeParliament from './GameModeParliament.vue'
 
 interface GameMode {
   id: string
