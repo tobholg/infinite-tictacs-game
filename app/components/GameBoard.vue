@@ -126,10 +126,14 @@
               'center-area': isCenterAreaCell(rowIndex, colIndex),
               'winning-cell': isWinningCell(rowIndex, colIndex)
             }">
-            <XIcon v-if="cell === 'X'" :size="cellSize * 0.6" :stroke-width="4" />
-            <OIcon v-else-if="cell === 'O'" :size="cellSize * 0.6" :stroke-width="4" />
-            <SquareIcon v-else-if="cell === 'Square'" :size="cellSize * 0.6" :stroke-width="4" />
-            <StarIcon v-else-if="cell === 'Star'" :size="cellSize * 0.6" :stroke-width="4" />
+            <!-- Recency heatmap overlay -->
+            <div v-if="getRecencyOpacity(rowIndex, colIndex) > 0" class="recency-overlay"
+              :style="{ opacity: getRecencyOpacity(rowIndex, colIndex) }">
+            </div>
+            <XIcon v-if="cell === 'X'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+            <OIcon v-else-if="cell === 'O'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+            <SquareIcon v-else-if="cell === 'Square'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+            <StarIcon v-else-if="cell === 'Star'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
           </div>
         </template>
       </div>
@@ -237,6 +241,7 @@ const emit = defineEmits<{
 
 type Cell = string
 type Board = Cell[][]
+type MoveRecord = { row: number; col: number; moveNumber: number }
 
 const boardSize = ref({ rows: 3, cols: 3 })
 const boardOffset = ref({ row: 0, col: 0 })
@@ -269,6 +274,10 @@ const winReason = ref<'traditional' | 'elimination' | null>(null) // Track how t
 // Gravity animation state
 const fallingPiece = ref<{ fromRow: number; toRow: number; col: number; symbol: string } | null>(null)
 const isAnimating = ref(false)
+
+// Move history for recency heatmap (last 8 moves)
+const moveHistory = ref<MoveRecord[]>([])
+const moveCounter = ref(0)
 
 // Win condition: 3 in a row for 2 players, 4 in a row for 3+ players
 const winLength = computed(() => props.players.length > 2 ? 4 : 3)
@@ -445,6 +454,8 @@ const expandBoard = (row: number, col: number) => {
     newBoard.unshift(Array(boardSize.value.cols).fill(''))
     boardSize.value.rows++
     boardOffset.value.row++
+    // Update existing move history: all rows shift down by 1
+    moveHistory.value.forEach(move => move.row++)
   }
 
   // In gravity mode, never expand downward (maintain hard ground)
@@ -462,6 +473,8 @@ const expandBoard = (row: number, col: number) => {
     }
     boardSize.value.cols++
     boardOffset.value.col++
+    // Update existing move history: all columns shift right by 1
+    moveHistory.value.forEach(move => move.col++)
   }
 
   if (col === boardSize.value.cols - 1) {
@@ -674,16 +687,28 @@ const makeMove = async (row: number, col: number) => {
 
     const wasEdgeCell = isEdgeCell(targetRow, targetCol)
     if (wasEdgeCell) {
+      // Track if we're expanding at top or left edge (coordinates will shift)
+      const expandedAtTop = targetRow === 0
+      const expandedAtLeft = targetCol === 0
+
       expandBoard(targetRow, targetCol)
+
+      // Update target coordinates to reflect post-expansion position
+      if (expandedAtTop) {
+        targetRow++
+      }
+      if (expandedAtLeft) {
+        targetCol++
+      }
 
       // After expansion, adjust scroll to maintain relative position
       await nextTick()
       if (boardElement.value) {
         // If we expanded on the top or left edges, we need to adjust the scroll
-        if (targetRow === 0 || targetCol === 0) {
+        if (expandedAtTop || expandedAtLeft) {
           // Scroll to maintain view of existing content
-          const newScrollLeft = targetCol === 0 ? boardElement.value.scrollLeft + cellSize.value + 6 : boardElement.value.scrollLeft
-          const newScrollTop = targetRow === 0 ? boardElement.value.scrollTop + cellSize.value + 6 : boardElement.value.scrollTop
+          const newScrollLeft = expandedAtLeft ? boardElement.value.scrollLeft + cellSize.value + 6 : boardElement.value.scrollLeft
+          const newScrollTop = expandedAtTop ? boardElement.value.scrollTop + cellSize.value + 6 : boardElement.value.scrollTop
 
           boardElement.value.scrollTo({
             left: newScrollLeft,
@@ -693,6 +718,18 @@ const makeMove = async (row: number, col: number) => {
         }
       }
     }
+  }
+
+  // Track move in history for recency heatmap
+  moveCounter.value++
+  moveHistory.value.unshift({
+    row: targetRow,
+    col: targetCol,
+    moveNumber: moveCounter.value
+  })
+  // Keep only last 8 moves
+  if (moveHistory.value.length > 8) {
+    moveHistory.value = moveHistory.value.slice(0, 8)
   }
 
   checkWinner()
@@ -782,6 +819,24 @@ const getTwoInARowType = (row: number, col: number): string => {
   }
 
   return 'normal'
+}
+
+// Recency heatmap functions
+const getRecencyOpacity = (row: number, col: number): number => {
+  // Find if this cell is in the move history
+  const moveIndex = moveHistory.value.findIndex(
+    move => move.row === row && move.col === col
+  )
+
+  if (moveIndex === -1) return 0 // Not in recent moves
+
+  // Calculate opacity: most recent (index 0) = 0.8, oldest = 0.1
+  // Linear gradient from 0.1 to 0.8
+  const historyLength = moveHistory.value.length
+  const recencyScore = (historyLength - moveIndex) / historyLength // 1.0 for newest, 0 for oldest
+  const opacity = 0.1 + (recencyScore * 0.7) // Range: 0.1 to 0.8
+
+  return opacity
 }
 
 // Timer functions for Speed Mode
@@ -1055,6 +1110,10 @@ const resetGame = async () => {
   // Reset gravity animation state
   fallingPiece.value = null
   isAnimating.value = false
+
+  // Reset move history
+  moveHistory.value = []
+  moveCounter.value = 0
 
   // Reset scroll position to center
   await scrollToCenter()
@@ -1380,6 +1439,33 @@ defineExpose({
 .cell.disabled {
   cursor: not-allowed;
   opacity: 0.9;
+}
+
+.recency-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle, rgba(72, 219, 251, 0.9), rgba(138, 43, 226, 0.6));
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 10px;
+  animation: recencyPulse 2s ease-in-out infinite;
+}
+
+@keyframes recencyPulse {
+  0%, 100% {
+    transform: scale(0.98);
+  }
+  50% {
+    transform: scale(1);
+  }
+}
+
+.cell-icon {
+  position: relative;
+  z-index: 2;
 }
 
 .cell.edge:not(.disabled) {
