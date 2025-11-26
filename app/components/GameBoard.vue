@@ -1,140 +1,236 @@
 <template>
   <div class="game-board-wrapper">
-    <div class="players-list">
-      <div v-for="player in players" :key="player.symbol" class="player-wrapper"
+    <div class="players-strip-wrapper">
+      <div class="players-strip">
+        <Motion
+          v-for="(player, index) in players"
+          :key="player.symbol"
+          tag="div"
+          class="player-chip"
         :class="{
-          active: currentPlayerIndex === players.indexOf(player) && !winner && !eliminatedPlayers.has(players.indexOf(player)),
-          winner: winner === player.symbol,
-          eliminated: eliminatedPlayers.has(players.indexOf(player))
-        }">
-        <div class="player">
-          <span class="player-symbol">
-            <XIcon v-if="player.symbol === 'X'" :size="28" :stroke-width="4" />
-            <OIcon v-else-if="player.symbol === 'O'" :size="28" :stroke-width="4" />
-            <SquareIcon v-else-if="player.symbol === 'Square'" :size="28" :stroke-width="4" />
-            <StarIcon v-else-if="player.symbol === 'Star'" :size="28" :stroke-width="4" />
-          </span>
-          <span class="player-name">{{ player.name }}</span>
-          <div class="turn-indicator" v-if="currentPlayerIndex === players.indexOf(player) && !winner && !eliminatedPlayers.has(players.indexOf(player))">
-            <span class="turn-arrow">◀</span>
-            <!-- Timer display for Speed Mode -->
-            <div v-if="props.gameMode === 'speed' && isTimerActive" class="timer-display" :class="{ warning: timerWarning }">
-              <div class="timer-circle">
-                <svg class="timer-svg" viewBox="0 0 36 36">
-                  <path class="timer-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                  <path class="timer-progress"
-                    :style="{ strokeDasharray: `${(timeLeft / props.timeLimit) * 100}, 100` }"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-                <div class="timer-text">{{ timeLeft.toFixed(1) }}</div>
-              </div>
+          active: currentPlayerIndex === index && !winner,
+          winner: winner === player.symbol
+        }"
+        :data-symbol="player.symbol.toLowerCase()"
+        :initial="{ opacity: 0, y: 12, scale: 0.92 }"
+        :animate="getPlayerChipAnimation(player.symbol, index)"
+        :transition="playerChipTransition"
+      >
+        <span class="player-symbol">
+          <XIcon v-if="player.symbol === 'X'" :size="26" :stroke-width="4" />
+          <OIcon v-else-if="player.symbol === 'O'" :size="26" :stroke-width="4" />
+          <SquareIcon v-else-if="player.symbol === 'Square'" :size="26" :stroke-width="4" />
+          <StarIcon v-else-if="player.symbol === 'Star'" :size="26" :stroke-width="4" />
+          <TriangleIcon v-else-if="player.symbol === 'Triangle'" :size="26" :stroke-width="4" />
+          <DiamondIcon v-else-if="player.symbol === 'Diamond'" :size="26" :stroke-width="4" />
+          <CircleIcon v-else-if="player.symbol === 'Circle'" :size="26" :stroke-width="4" />
+          <PlusIcon v-else-if="player.symbol === 'Plus'" :size="26" :stroke-width="4" />
+          <HeartIcon v-else-if="player.symbol === 'Heart'" :size="26" :stroke-width="4" />
+          <PentagonIcon v-else-if="player.symbol === 'Pentagon'" :size="26" :stroke-width="4" />
+        </span>
+        <span class="player-name">{{ player.name }}</span>
+        <div class="turn-indicator" v-if="currentPlayerIndex === index && !winner">
+          <span class="turn-indicator-dot"></span>
+          <div v-if="hasTimeLimitRule && isTimerActive" class="timer-display" :class="{ warning: timerWarning }">
+            <div class="timer-circle">
+              <svg class="timer-svg" viewBox="0 0 36 36">
+                <path class="timer-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path class="timer-progress"
+                  :style="{ strokeDasharray: `${(timeLeft / props.timeLimit) * 100}, 100` }"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              </svg>
+              <div class="timer-text">{{ timeLeft.toFixed(1) }}</div>
             </div>
           </div>
-          <span v-if="winner === player.symbol" class="winner-badge">Winner!</span>
-          <span v-else-if="eliminatedPlayers.has(players.indexOf(player))" class="eliminated-badge">⚠️ ELIMINATED</span>
         </div>
+        <span v-if="winner === player.symbol" class="status-tag">Winner</span>
+      </Motion>
       </div>
-    </div>
-    <div class="board-info">
-      <div class="info-item">
-        <span class="info-label">Board Dimensions:</span>
-        <span class="info-value">{{ boardSize.rows }} × {{ boardSize.cols }}</span>
-      </div>
-      <div class="info-item">
-        <span class="info-label">Win Condition:</span>
-        <span class="info-value">{{ props.gameMode === 'kingofthehill' ? 'Control center area' : winLength + ' in a row' }}</span>
-      </div>
-      <div class="info-item" v-if="props.gameMode === 'speed'">
-        <span class="info-label">Game Mode:</span>
-        <span class="info-value">Speed Mode</span>
-      </div>
-      <div class="info-item" v-if="props.gameMode === 'gravity'">
-        <span class="info-label">Game Mode:</span>
-        <span class="info-value">Gravity Mode</span>
-      </div>
-      <div class="info-item" v-if="props.gameMode === 'kingofthehill'">
-        <span class="info-label">Game Mode:</span>
-        <span class="info-value">King of the Hill</span>
-      </div>
+      <Motion
+        v-if="showVictoryBadge && (winner || isDraw)"
+        tag="div"
+        class="victory-badge-chip"
+        :initial="{ opacity: 0, y: -10, scale: 0.9 }"
+        :animate="{ opacity: 1, y: 0, scale: 1 }"
+        :exit="{ opacity: 0, scale: 0.9 }"
+        :transition="{ duration: 0.4, easing: livelySpringEasing }"
+        :style="victoryBadgeStyle"
+      >
+        <span class="victory-badge-label">{{ victoryBadgeText }}</span>
+        <span v-if="winner" class="victory-badge-subtle">{{ players.find(p => p.symbol === winner)?.name || winner }} is celebrating</span>
+        <span v-else class="victory-badge-subtle">Balance achieved</span>
+      </Motion>
     </div>
 
+    <div class="board-info-row">
+      <span>Board: {{ boardSize.rows }} × {{ boardSize.cols }}</span>
+      <span>Win: {{ winLength + ' in a row' }}</span>
+      <span>Mode: {{ gameModeLabel }}</span>
+      <span v-if="activeRulesCount > 0">Rules: {{ activeRulesLabel }}</span>
+    </div>
 
     <div class="board-container">
-      <div class="game-info-overlay" v-if="(winner || isDraw) && !showMapPopup">
-        <div v-if="winner" class="game-result victory" :class="{ 'elimination-victory': winReason === 'elimination' }">
-          <span v-if="winReason === 'traditional'" class="victory-text">{{players.find(p => p.symbol === winner)?.name}} won <br> {{ winLength }} in a row </span>
-          <span v-else-if="winReason === 'elimination'" class="victory-text elimination-text">{{players.find(p => p.symbol === winner)?.name}} won <br> last player alive </span>
-          <span v-else class="victory-text">{{players.find(p => p.symbol === winner)?.name}} won</span>
+      <Motion
+        v-if="showResultsOverlay && (winner || isDraw) && !showMapPopup"
+        class="game-info-overlay"
+        :initial="{ opacity: 0, scale: 0.9, y: 24 }"
+        :animate="{ opacity: 1, scale: 1, y: 0 }"
+        :transition="resultOverlayTransition"
+      >
+        <div v-if="winner" class="game-result victory">
+          <span class="victory-text">{{players.find(p => p.symbol === winner)?.name}} won <br> {{ winLength }} in a row </span>
         </div>
         <div v-else class="game-result draw">
           <span class="draw-text">Perfect Harmony</span>
           <span class="draw-subtitle">All minds have contributed equally</span>
         </div>
         <div class="game-end-actions">
-          <button @click="showMapPopup = true" class="action-button map-button">
-            <span class="button-icon">🗺️</span>
+          <Motion
+            tag="button"
+            @click="showMapPopup = true"
+            class="action-button"
+            :hover="ctaHoverState"
+            :press="ctaPressState"
+            :transition="{ duration: 0.25, easing: livelySpringEasing }"
+          >
+            <MapIcon class="button-icon" :size="18" />
             <span>Explore Map</span>
-          </button>
-          <button @click="resetGame" class="action-button restart-button">
-            <span class="button-icon">🎨</span>
+          </Motion>
+          <Motion
+            tag="button"
+            @click="resetGame"
+            class="action-button"
+            :hover="ctaHoverState"
+            :press="ctaPressState"
+            :transition="{ duration: 0.25, easing: livelySpringEasing }"
+          >
+            <RefreshIcon class="button-icon" :size="18" />
             <span>Restart</span>
-          </button>
-          <button @click="$emit('backToMenu')" class="action-button menu-button">
-            <span class="button-icon">✨</span>
+          </Motion>
+          <Motion
+            tag="button"
+            @click="$emit('backToMenu')"
+            class="action-button"
+            :hover="ctaHoverState"
+            :press="ctaPressState"
+            :transition="{ duration: 0.25, easing: livelySpringEasing }"
+          >
+            <HomeIcon class="button-icon" :size="18" />
             <span>Start Menu</span>
-          </button>
+          </Motion>
         </div>
-      </div>
-      <div ref="boardElement" class="board"
-        :style="{
-          gridTemplateColumns: `repeat(${boardSize.cols}, ${cellSize}px)`,
-          gridTemplateRows: `repeat(${boardSize.rows}, ${cellSize}px)`
-        }"
+      </Motion>
+      <div
+        ref="boardElement"
+        class="board"
+        :style="boardStyle"
       >
-        <!-- Ground line for gravity mode -->
-        <div v-if="props.gameMode === 'gravity'" class="ground-line"
-          :style="{
-            width: `${boardSize.cols * cellSize + (boardSize.cols - 1) * 5}px`,
-            bottom: '10px'
-          }"
-        ></div>
-
-        <!-- Falling piece animation for gravity mode -->
-        <div v-if="fallingPiece && props.gameMode === 'gravity'" class="falling-piece"
-          :style="{
-            left: `${fallingPiece.col * (cellSize + 5)}px`,
-            top: `${fallingPiece.fromRow * (cellSize + 5)}px`,
-            '--fall-distance': `${(fallingPiece.toRow - fallingPiece.fromRow) * (cellSize + 5)}px`,
-            width: `${cellSize}px`,
-            height: `${cellSize}px`
-          }"
-        >
-          <XIcon v-if="fallingPiece.symbol === 'X'" :size="cellSize * 0.6" :stroke-width="4" />
-          <OIcon v-else-if="fallingPiece.symbol === 'O'" :size="cellSize * 0.6" :stroke-width="4" />
-          <SquareIcon v-else-if="fallingPiece.symbol === 'Square'" :size="cellSize * 0.6" :stroke-width="4" />
-          <StarIcon v-else-if="fallingPiece.symbol === 'Star'" :size="cellSize * 0.6" :stroke-width="4" />
-        </div>
-        <template v-for="(row, rowIndex) in board" :key="rowIndex">
-          <div v-for="(cell, colIndex) in row" :key="`${rowIndex}-${colIndex}`" class="cell"
-            @click="makeMove(rowIndex, colIndex)" :class="{
-              'disabled': cell !== '' || winner || isDraw || (props.gameMode === 'gravity' && findLowestAvailableRow(colIndex) === -1),
-              'edge': isEdgeCell(rowIndex, colIndex) && cell === '' && isAdjacentToFilledCell(rowIndex, colIndex),
-              'not-playable': cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw && props.gameMode !== 'gravity',
-              'gravity-landing': isGravityLandingCell(rowIndex, colIndex),
-              'gravity-column': isGravityColumnCell(rowIndex, colIndex),
-              'ground-cell': props.gameMode === 'gravity' && rowIndex === boardSize.rows - 1,
-              'center-area': isCenterAreaCell(rowIndex, colIndex),
-              'winning-cell': isWinningCell(rowIndex, colIndex)
-            }">
-            <!-- Recency heatmap overlay -->
-            <div v-if="getRecencyOpacity(rowIndex, colIndex) > 0" class="recency-overlay"
-              :style="{ opacity: getRecencyOpacity(rowIndex, colIndex) }">
-            </div>
-            <XIcon v-if="cell === 'X'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
-            <OIcon v-else-if="cell === 'O'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
-            <SquareIcon v-else-if="cell === 'Square'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
-            <StarIcon v-else-if="cell === 'Star'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+        <template v-if="false">
+          <div
+            v-for="(row, rowIndex) in board"
+            :key="`hex-row-${rowIndex}`"
+            class="hex-row"
+            :class="{ 'hex-row-offset': rowIndex % 2 === 1 }"
+          >
+            <Motion
+              v-for="(cell, colIndex) in row"
+              :key="`${rowIndex}-${colIndex}`"
+              tag="div"
+              class="cell"
+              @click="makeMove(rowIndex, colIndex)"
+              :class="{
+                'hex-cell': true,
+                'disabled': (cell !== '' || winner || isDraw) && props.cantPlaceEffects.dimmedCells,
+                'disabled-patterned': (cell !== '' || winner || isDraw) && props.cantPlaceEffects.stripedPattern,
+                'edge': isEdgeCell(rowIndex, colIndex) && cell === '' && isAdjacentToFilledCell(rowIndex, colIndex),
+                'not-playable': cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw && props.cantPlaceEffects.dimmedCells,
+                'not-playable-patterned': cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw && props.cantPlaceEffects.stripedPattern,
+                'center-area': isCenterAreaCell(rowIndex, colIndex),
+                'winning-cell': isWinningCell(rowIndex, colIndex),
+                'cell-filled': cell !== '',
+                'cell-just-placed': isLastPlacedCell(rowIndex, colIndex),
+                ['cell-' + cell.toLowerCase()]: cell !== ''
+              }"
+              :data-symbol="cell ? cell.toLowerCase() : undefined"
+              :initial="{ opacity: 0, scale: 0.85 }"
+              :animate="getCellMotionState(rowIndex, colIndex, cell)"
+              :transition="getCellMotionTransition(rowIndex, colIndex)"
+            >
+              <div
+                v-if="getRecencyData(rowIndex, colIndex)"
+                class="recency-overlay"
+                :style="{
+                  opacity: getRecencyData(rowIndex, colIndex)?.opacity,
+                  background: `radial-gradient(circle, ${getRecencyData(rowIndex, colIndex)?.color}DD, ${getRecencyData(rowIndex, colIndex)?.color}99)`
+                }"
+              ></div>
+              <!-- Alert icon for unplayable cells (hex mode) -->
+              <div v-if="props.cantPlaceEffects.warningIcon && cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw" class="not-playable-indicator" title="Not playable - Place moves adjacent to existing pieces">
+                <AlertIcon :size="16" color="rgba(251, 191, 36, 0.7)" :stroke-width="2" />
+              </div>
+              <XIcon v-if="cell === 'X'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <OIcon v-else-if="cell === 'O'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <SquareIcon v-else-if="cell === 'Square'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <StarIcon v-else-if="cell === 'Star'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <TriangleIcon v-else-if="cell === 'Triangle'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <DiamondIcon v-else-if="cell === 'Diamond'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <CircleIcon v-else-if="cell === 'Circle'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <PlusIcon v-else-if="cell === 'Plus'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <HeartIcon v-else-if="cell === 'Heart'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <PentagonIcon v-else-if="cell === 'Pentagon'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+            </Motion>
           </div>
+        </template>
+        <template v-else>
+          <template v-for="(row, rowIndex) in board" :key="rowIndex">
+            <Motion
+              v-for="(cell, colIndex) in row"
+              :key="`${rowIndex}-${colIndex}`"
+              tag="div"
+              class="cell"
+              @click="makeMove(rowIndex, colIndex)"
+              :class="{
+                'disabled': (cell !== '' || winner || isDraw) && props.cantPlaceEffects.dimmedCells,
+                'disabled-patterned': (cell !== '' || winner || isDraw) && props.cantPlaceEffects.stripedPattern,
+                'not-playable': cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw && props.cantPlaceEffects.dimmedCells,
+                'not-playable-patterned': cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw && props.cantPlaceEffects.stripedPattern,
+                'edge': isEdgeCell(rowIndex, colIndex) && cell === '' && isAdjacentToFilledCell(rowIndex, colIndex),
+                'center-area': isCenterAreaCell(rowIndex, colIndex),
+                'winning-cell': isWinningCell(rowIndex, colIndex),
+                'cell-filled': cell !== '',
+                'cell-just-placed': isLastPlacedCell(rowIndex, colIndex),
+                ['cell-' + cell.toLowerCase()]: cell !== ''
+              }"
+              :data-symbol="cell ? cell.toLowerCase() : undefined"
+              :initial="{ opacity: 0, scale: 0.85 }"
+              :animate="getCellMotionState(rowIndex, colIndex, cell)"
+              :transition="getCellMotionTransition(rowIndex, colIndex)"
+            >
+              <!-- Recency heatmap overlay -->
+              <div
+                v-if="getRecencyData(rowIndex, colIndex)"
+                class="recency-overlay"
+                :style="{
+                  opacity: getRecencyData(rowIndex, colIndex)?.opacity,
+                  background: `radial-gradient(circle, ${getRecencyData(rowIndex, colIndex)?.color}DD, ${getRecencyData(rowIndex, colIndex)?.color}99)`
+                }"
+              ></div>
+              <!-- Alert icon for unplayable cells (regular grid) -->
+              <div v-if="props.cantPlaceEffects.warningIcon && cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw" class="not-playable-indicator" title="Not playable - Place moves adjacent to existing pieces">
+                <AlertIcon :size="16" color="rgba(251, 191, 36, 0.7)" :stroke-width="2" />
+              </div>
+              <XIcon v-if="cell === 'X'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <OIcon v-else-if="cell === 'O'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <SquareIcon v-else-if="cell === 'Square'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <StarIcon v-else-if="cell === 'Star'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <TriangleIcon v-else-if="cell === 'Triangle'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <DiamondIcon v-else-if="cell === 'Diamond'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <CircleIcon v-else-if="cell === 'Circle'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <PlusIcon v-else-if="cell === 'Plus'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <HeartIcon v-else-if="cell === 'Heart'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+              <PentagonIcon v-else-if="cell === 'Pentagon'" :size="cellSize * 0.6" :stroke-width="4" class="cell-icon" />
+            </Motion>
+          </template>
         </template>
       </div>
     </div>
@@ -165,12 +261,30 @@
                   'popup-square-three-in-row': getTwoInARowType(rowIndex, colIndex) === 'square-three-in-row',
                   'popup-square-two-in-row': getTwoInARowType(rowIndex, colIndex) === 'square-two-in-row',
                   'popup-star-three-in-row': getTwoInARowType(rowIndex, colIndex) === 'star-three-in-row',
-                  'popup-star-two-in-row': getTwoInARowType(rowIndex, colIndex) === 'star-two-in-row'
+                  'popup-star-two-in-row': getTwoInARowType(rowIndex, colIndex) === 'star-two-in-row',
+                  'popup-triangle-three-in-row': getTwoInARowType(rowIndex, colIndex) === 'triangle-three-in-row',
+                  'popup-triangle-two-in-row': getTwoInARowType(rowIndex, colIndex) === 'triangle-two-in-row',
+                  'popup-diamond-three-in-row': getTwoInARowType(rowIndex, colIndex) === 'diamond-three-in-row',
+                  'popup-diamond-two-in-row': getTwoInARowType(rowIndex, colIndex) === 'diamond-two-in-row',
+                  'popup-circle-three-in-row': getTwoInARowType(rowIndex, colIndex) === 'circle-three-in-row',
+                  'popup-circle-two-in-row': getTwoInARowType(rowIndex, colIndex) === 'circle-two-in-row',
+                  'popup-plus-three-in-row': getTwoInARowType(rowIndex, colIndex) === 'plus-three-in-row',
+                  'popup-plus-two-in-row': getTwoInARowType(rowIndex, colIndex) === 'plus-two-in-row',
+                  'popup-heart-three-in-row': getTwoInARowType(rowIndex, colIndex) === 'heart-three-in-row',
+                  'popup-heart-two-in-row': getTwoInARowType(rowIndex, colIndex) === 'heart-two-in-row',
+                  'popup-pentagon-three-in-row': getTwoInARowType(rowIndex, colIndex) === 'pentagon-three-in-row',
+                  'popup-pentagon-two-in-row': getTwoInARowType(rowIndex, colIndex) === 'pentagon-two-in-row'
                 }">
                   <XIcon v-if="cell === 'X'" :size="popupCellSize * 0.6" :stroke-width="4" />
                   <OIcon v-else-if="cell === 'O'" :size="popupCellSize * 0.6" :stroke-width="4" />
                   <SquareIcon v-else-if="cell === 'Square'" :size="popupCellSize * 0.6" :stroke-width="4" />
                   <StarIcon v-else-if="cell === 'Star'" :size="popupCellSize * 0.6" :stroke-width="4" />
+                  <TriangleIcon v-else-if="cell === 'Triangle'" :size="popupCellSize * 0.6" :stroke-width="4" />
+                  <DiamondIcon v-else-if="cell === 'Diamond'" :size="popupCellSize * 0.6" :stroke-width="4" />
+                  <CircleIcon v-else-if="cell === 'Circle'" :size="popupCellSize * 0.6" :stroke-width="4" />
+                  <PlusIcon v-else-if="cell === 'Plus'" :size="popupCellSize * 0.6" :stroke-width="4" />
+                  <HeartIcon v-else-if="cell === 'Heart'" :size="popupCellSize * 0.6" :stroke-width="4" />
+                  <PentagonIcon v-else-if="cell === 'Pentagon'" :size="popupCellSize * 0.6" :stroke-width="4" />
                 </div>
               </template>
             </div>
@@ -180,28 +294,28 @@
             <div class="popup-inner">
               <div class="control-group">
                 <button @click="popupZoomIn" class="action-button zoom-btn" :disabled="popupZoomLevel >= maxZoom" title="Zoom In (+)">
-                  <span class="button-icon">🔍+</span>
+                  <ZoomInIcon class="button-icon" :size="18" />
                 </button>
                 <button @click="popupZoomOut" class="action-button zoom-btn" :disabled="popupZoomLevel <= minZoom" title="Zoom Out (-)">
-                  <span class="button-icon">🔍-</span>
+                  <ZoomOutIcon class="button-icon" :size="18" />
                 </button>
                 <div class="zoom-display">{{ Math.round(popupZoomLevel * 100) }}%</div>
               </div>
               <div class="control-group">
                 <button @click="popupResetView" class="action-button" title="Reset View (0)">
-                  <span class="button-icon">🎯</span>
+                  <TargetIcon class="button-icon" :size="18" />
                   <span>Reset</span>
                 </button>
                 <button @click="popupFitToView" class="action-button" title="Fit to View (F)">
-                  <span class="button-icon">🔍</span>
+                  <FitScreenIcon class="button-icon" :size="18" />
                   <span>Fit</span>
                 </button>
                 <button @click="colorMapEnabled = !colorMapEnabled" class="action-button" :class="{ 'active': colorMapEnabled }" title="Toggle Color Map">
-                  <span class="button-icon">🎨</span>
+                  <PaletteIcon class="button-icon" :size="18" />
                   <span>{{ colorMapEnabled ? 'Hide' : 'Show' }} Map</span>
                 </button>
                 <button @click="showMapPopup = false" class="action-button" title="Exit Explorer (Esc)">
-                  <span class="button-icon">✕</span>
+                  <CloseIcon class="button-icon" :size="18" />
                   <span>Exit</span>
                 </button>
               </div>
@@ -219,29 +333,102 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted, withDefaults } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, withDefaults, watch } from 'vue'
+import { Motion } from '@motionone/vue'
 import XIcon from './icons/XIcon.vue'
 import OIcon from './icons/OIcon.vue'
 import SquareIcon from './icons/SquareIcon.vue'
 import StarIcon from './icons/StarIcon.vue'
-import type { Player } from './StartMenu.vue'
+import RefreshIcon from './icons/RefreshIcon.vue'
+import MapIcon from './icons/MapIcon.vue'
+import HomeIcon from './icons/HomeIcon.vue'
+import ZoomInIcon from './icons/ZoomInIcon.vue'
+import ZoomOutIcon from './icons/ZoomOutIcon.vue'
+import TargetIcon from './icons/TargetIcon.vue'
+import FitScreenIcon from './icons/FitScreenIcon.vue'
+import PaletteIcon from './icons/PaletteIcon.vue'
+import CloseIcon from './icons/CloseIcon.vue'
+import AlertIcon from './icons/AlertIcon.vue'
+import TriangleIcon from './icons/TriangleIcon.vue'
+import DiamondIcon from './icons/DiamondIcon.vue'
+import CircleIcon from './icons/CircleIcon.vue'
+import PlusIcon from './icons/PlusIcon.vue'
+import HeartIcon from './icons/HeartIcon.vue'
+import PentagonIcon from './icons/PentagonIcon.vue'
+import type { Player, PlayerSymbol } from './StartMenu.vue'
+
+interface ChainReactionConfig {
+  baseEnergy: number
+  energyBonusDivider: number
+  maxCellsPerChain: number
+  conversionBonus: number
+  minClusterSizeToTrigger: number
+  adjacencyType: 'orthogonal' | 'diagonal' | 'both'
+  conversionPolicy: 'territorial' | 'balanced' | 'aggressive'
+  winCondition: 'score' | 'superchain' | 'territory'
+  superChainThreshold?: number
+  turnLimit?: number
+}
+
+interface CantPlaceEffects {
+  dimmedCells: boolean
+  stripedPattern: boolean
+  warningIcon: boolean
+}
 
 const props = withDefaults(defineProps<{
   players: Player[]
-  gameMode?: 'classic' | 'speed' | 'gravity' | 'kingofthehill'
+  gameMode?: 'classic'
+  rules?: string[]  // Stackable rules like ['timeLimit']
   timeLimit?: number
+  cantPlaceEffects?: CantPlaceEffects
 }>(), {
   gameMode: 'classic',
-  timeLimit: 5
+  rules: () => [],
+  timeLimit: 10,
+  cantPlaceEffects: () => ({
+    dimmedCells: true,
+    stripedPattern: false,
+    warningIcon: false
+  })
 })
 
 const emit = defineEmits<{
   backToMenu: []
 }>()
 
+// Helper computed properties for checking active rules
+const hasTimeLimitRule = computed(() => props.rules?.includes('timeLimit') ?? false)
+
+// Labels for display
+const gameModeLabel = computed(() => 'Classic')
+
+const activeRulesCount = computed(() => props.rules?.length ?? 0)
+
+const activeRulesLabel = computed(() => {
+  if (hasTimeLimitRule.value) {
+    return 'Time Limit'
+  }
+  return ''
+})
+
 type Cell = string
 type Board = Cell[][]
-type MoveRecord = { row: number; col: number; moveNumber: number }
+type MoveRecord = { row: number; col: number; moveNumber: number; symbol: string }
+type RecencyData = { opacity: number; symbol: string; color: string }
+
+const PLAYER_COLOR_MAP: Record<string, string> = {
+  X: '#2196F3',      // Blue
+  O: '#F44336',      // Red
+  Square: '#9C27B0', // Purple
+  Star: '#FF9800',   // Orange
+  Triangle: '#4CAF50', // Green
+  Diamond: '#00BCD4',  // Cyan
+  Circle: '#FFEB3B',   // Yellow
+  Plus: '#E91E63',     // Pink
+  Heart: '#FF5722',    // Deep Orange
+  Pentagon: '#795548'  // Brown
+}
 
 const boardSize = ref({ rows: 3, cols: 3 })
 const boardOffset = ref({ row: 0, col: 0 })
@@ -249,8 +436,24 @@ const board = ref<Board>([['', '', ''], ['', '', ''], ['', '', '']])
 const currentPlayerIndex = ref(0)
 const winner = ref<string | null>(null)
 const winningCells = ref<{ row: number; col: number }[]>([])
+const winningPlayerName = computed(() => {
+  if (!winner.value) return null
+  return props.players.find(player => player.symbol === winner.value)?.name ?? null
+})
 const boardElement = ref<HTMLElement | null>(null)
 const showMapPopup = ref(false)
+const showVictoryBadge = ref(false)
+const showResultsOverlay = ref(false)
+const viewportWidth = ref<number>(typeof window !== 'undefined' ? window.innerWidth : 1280)
+const viewportHeight = ref<number>(typeof window !== 'undefined' ? window.innerHeight : 720)
+let overlayRevealTimeout: ReturnType<typeof setTimeout> | null = null
+const overlayRevealDelay = 1400
+
+const updateViewportSize = () => {
+  if (typeof window === 'undefined') return
+  viewportWidth.value = window.innerWidth
+  viewportHeight.value = window.innerHeight
+}
 
 // Popup-specific variables
 const popupBoardElement = ref<HTMLElement | null>(null)
@@ -268,19 +471,61 @@ const timerInterval = ref<number | null>(null)
 const isTimerActive = ref(false)
 const timerWarning = ref(false)
 const timerPrecision = 100 // Update every 100ms for smooth animation
-const eliminatedPlayers = ref<Set<number>>(new Set()) // Track eliminated player indices
-const winReason = ref<'traditional' | 'elimination' | null>(null) // Track how the game was won
 
-// Gravity animation state
-const fallingPiece = ref<{ fromRow: number; toRow: number; col: number; symbol: string } | null>(null)
-const isAnimating = ref(false)
-
-// Move history for recency heatmap (last 8 moves)
+// Move history for recency heatmap (2 * number of players)
 const moveHistory = ref<MoveRecord[]>([])
 const moveCounter = ref(0)
+const recencyHighlightCell = ref<{ row: number; col: number; symbol: PlayerSymbol } | null>(null)
+
+const lastPlacedCell = ref<{ row: number; col: number } | null>(null) // Track last placed cell for animation
+const isExpanding = ref(false) // Prevent animation during board expansion
+
+// Maximum moves to track in history: 2 per player
+const maxHistorySize = computed(() => props.players.length * 2)
 
 // Win condition: 3 in a row for 2 players, 4 in a row for 3+ players
 const winLength = computed(() => props.players.length > 2 ? 4 : 3)
+
+const centerAreaCells = computed(() => {
+  const rows = boardSize.value.rows
+  const cols = boardSize.value.cols
+  const centerRow = Math.floor(rows / 2)
+  const centerCol = Math.floor(cols / 2)
+  const radius = Math.min(1, Math.floor(Math.min(rows, cols) / 2))
+  const cells: Array<{ row: number; col: number }> = []
+
+  for (let r = Math.max(0, centerRow - radius); r <= Math.min(rows - 1, centerRow + radius); r++) {
+    for (let c = Math.max(0, centerCol - radius); c <= Math.min(cols - 1, centerCol + radius); c++) {
+      cells.push({ row: r, col: c })
+    }
+  }
+
+  return cells
+})
+
+const centerAreaCellSet = computed(() => {
+  const set = new Set<string>()
+  for (const cell of centerAreaCells.value) {
+    set.add(`${cell.row}-${cell.col}`)
+  }
+  return set
+})
+
+const recencyDataByCell = computed(() => {
+  const highlight = recencyHighlightCell.value
+  if (!highlight) {
+    return new Map<string, RecencyData>()
+  }
+
+  const color = PLAYER_COLOR_MAP[highlight.symbol] ?? '#72DBfB'
+  const data: RecencyData = {
+    opacity: 0.4,
+    symbol: highlight.symbol,
+    color
+  }
+
+  return new Map<string, RecencyData>([[`${highlight.row}-${highlight.col}`, data]])
+})
 
 // Popup computed properties
 const popupCellSize = computed(() => 60) // Fixed size for popup
@@ -297,8 +542,8 @@ const cellSize = computed(() => {
   const padding = 20 // Board padding from CSS (10px * 2)
 
   // Get viewport dimensions (accounting for padding and margins)
-  const maxBoardWidth = window.innerWidth * 0.9 // 90vw from max-width
-  const maxBoardHeight = window.innerHeight - 200 // Account for header, info, and players
+  const maxBoardWidth = viewportWidth.value * 0.9 // 90vw from max-width
+  const maxBoardHeight = Math.max(viewportHeight.value - 200, minCellSize) // Account for header, info, and players
 
   // Calculate board dimensions with initial cell size
   const boardWidth = boardSize.value.cols * initialCellSize + (boardSize.value.cols - 1) * gap + padding
@@ -319,10 +564,72 @@ const cellSize = computed(() => {
   return calculatedSize
 })
 
+const hexRowGap = computed(() => Math.max(6, Math.round(cellSize.value * 0.2)))
+const hexColumnGap = computed(() => Math.max(6, Math.round(cellSize.value * 0.18)))
+const hexRowOffset = computed(() => Math.round(cellSize.value * 0.5))
+
+const boardStyle = computed(() => {
+  return {
+    '--cell-size': `${cellSize.value}px`,
+    gridTemplateColumns: `repeat(${boardSize.value.cols}, ${cellSize.value}px)`,
+    gridTemplateRows: `repeat(${boardSize.value.rows}, ${cellSize.value}px)`
+  } as Record<string, string>
+})
+
 
 const isDraw = computed(() => {
   return !winner.value && board.value.every(row => row.every(cell => cell !== ''))
 })
+
+const victoryBadgeText = computed(() => {
+  if (winner.value) {
+    return `${winningPlayerName.value ?? winner.value} just won!`
+  }
+  if (isDraw.value) {
+    return "It's a draw!"
+  }
+  return ''
+})
+
+const victoryBadgeAccent = computed(() => {
+  if (winner.value) {
+    return PLAYER_COLOR_MAP[winner.value] ?? '#fbbf24'
+  }
+  if (isDraw.value) {
+    return '#fbbf24'
+  }
+  return 'var(--color-accent)'
+})
+
+const victoryBadgeStyle = computed(() => ({
+  borderColor: victoryBadgeAccent.value,
+  boxShadow: `0 15px 35px ${victoryBadgeAccent.value}55`,
+  background: `linear-gradient(135deg, ${victoryBadgeAccent.value}26, rgba(15, 23, 42, 0.85))`
+}))
+
+const shouldAnimateWinningCells = computed(() => Boolean(winner.value) && !showResultsOverlay.value)
+
+watch([winner, isDraw, showMapPopup], ([winnerVal, isDrawVal, mapOpen]) => {
+  if ((winnerVal || isDrawVal) && !mapOpen) {
+    showVictoryBadge.value = true
+    showResultsOverlay.value = false
+    if (overlayRevealTimeout) {
+      clearTimeout(overlayRevealTimeout)
+      overlayRevealTimeout = null
+    }
+    overlayRevealTimeout = setTimeout(() => {
+      showResultsOverlay.value = true
+      showVictoryBadge.value = false
+    }, overlayRevealDelay)
+  } else {
+    showVictoryBadge.value = false
+    showResultsOverlay.value = false
+    if (overlayRevealTimeout) {
+      clearTimeout(overlayRevealTimeout)
+      overlayRevealTimeout = null
+    }
+  }
+}, { immediate: true })
 
 const hasAnyMoves = computed(() => {
   return board.value.some(row => row.some(cell => cell !== ''))
@@ -336,7 +643,7 @@ const isAdjacentToFilledCell = (row: number, col: number): boolean => {
     return row === centerRow && col === centerCol
   }
 
-  // Check all 8 adjacent cells
+  // Check all 8 adjacent cells (square grid)
   const directions = [
     [-1, -1], [-1, 0], [-1, 1],
     [0, -1], [0, 1],
@@ -357,100 +664,152 @@ const isAdjacentToFilledCell = (row: number, col: number): boolean => {
 }
 
 const isEdgeCell = (row: number, col: number): boolean => {
-  if (props.gameMode === 'gravity') {
-    // In gravity mode, only expand up, left, and right (never down)
-    return row === 0 || col === 0 || col === boardSize.value.cols - 1
-  }
   return row === 0 || row === boardSize.value.rows - 1 || col === 0 || col === boardSize.value.cols - 1
 }
 
-const findLowestAvailableRow = (col: number): number => {
-  // In gravity mode, find the lowest (highest row index) available position in the column
-  for (let row = boardSize.value.rows - 1; row >= 0; row--) {
-    if (board.value[row]?.[col] === '') {
-      return row
-    }
+const playerHasValidMoves = (playerIndex: number): boolean => {
+  // Check if a player has any valid moves available
+  const player = props.players[playerIndex]
+  if (!player) return false
+
+  // Check if there are any empty cells adjacent to filled cells
+  // or if the board is empty (first move)
+  const hasAnyFilledCells = board.value.some(row => row.some(cell => cell !== ''))
+
+  if (!hasAnyFilledCells) {
+    // First move - always has valid moves
+    return true
   }
-  return -1 // Column is full
-}
 
-const isGravityLandingCell = (row: number, col: number): boolean => {
-  if (props.gameMode !== 'gravity' || board.value[row]?.[col] !== '') return false
-
-  // This is where a piece would actually land if dropped in this column
-  const landingRow = findLowestAvailableRow(col)
-  return landingRow === row
-}
-
-const isGravityColumnCell = (row: number, col: number): boolean => {
-  if (props.gameMode !== 'gravity' || board.value[row]?.[col] !== '') return false
-
-  // This is any playable cell in a droppable column, but not the landing spot
-  const landingRow = findLowestAvailableRow(col)
-  return landingRow !== -1 && landingRow !== row
-}
-
-// King of the Hill mode functions
-const getCenterArea = () => {
-  const rows = boardSize.value.rows
-  const cols = boardSize.value.cols
-  const centerRow = Math.floor(rows / 2)
-  const centerCol = Math.floor(cols / 2)
-
-  // Define a 3x3 center area (or smaller if board is small)
-  const centerArea = []
-  const radius = Math.min(1, Math.floor(Math.min(rows, cols) / 2))
-
-  for (let r = Math.max(0, centerRow - radius); r <= Math.min(rows - 1, centerRow + radius); r++) {
-    for (let c = Math.max(0, centerCol - radius); c <= Math.min(cols - 1, centerCol + radius); c++) {
-      centerArea.push({ row: r, col: c })
+  // Check for any empty cell adjacent to a filled cell
+  for (let row = 0; row < boardSize.value.rows; row++) {
+    for (let col = 0; col < boardSize.value.cols; col++) {
+      if (board.value[row]?.[col] === '' && isAdjacentToFilledCell(row, col)) {
+        return true
+      }
     }
   }
 
-  return centerArea
+  return false
 }
 
 const isCenterAreaCell = (row: number, col: number): boolean => {
-  if (props.gameMode !== 'kingofthehill') return false
-  const centerArea = getCenterArea()
-  return centerArea.some(cell => cell.row === row && cell.col === col)
-}
-
-const checkKingOfTheHillWinner = () => {
-  const centerArea = getCenterArea()
-  const playerCounts: { [symbol: string]: number } = {}
-
-  // Count how many center cells each player controls
-  for (const cell of centerArea) {
-    const symbol = board.value[cell.row]?.[cell.col]
-    if (symbol) {
-      playerCounts[symbol] = (playerCounts[symbol] || 0) + 1
-    }
-  }
-
-  // Check if any player controls more than half of the center area
-  const totalCenterCells = centerArea.length
-  const requiredCells = Math.ceil(totalCenterCells / 2)
-
-  for (const [symbol, count] of Object.entries(playerCounts)) {
-    if (count >= requiredCells) {
-      winner.value = symbol
-      winReason.value = 'traditional' // We'll use traditional for now
-      // Highlight the center area as winning cells
-      winningCells.value = centerArea.filter(cell => board.value[cell.row]?.[cell.col] === symbol)
-      return
-    }
-  }
+  return centerAreaCellSet.value.has(`${row}-${col}`)
 }
 
 const isWinningCell = (row: number, col: number): boolean => {
   return winningCells.value.some(cell => cell.row === row && cell.col === col)
 }
 
-const expandBoard = (row: number, col: number) => {
-  const newBoard = [...board.value]
+const isLastPlacedCell = (row: number, col: number): boolean => {
+  return lastPlacedCell.value?.row === row && lastPlacedCell.value?.col === col
+}
 
-  if (row === 0) {
+const livelySpringEasing = 'cubic-bezier(0.22, 1, 0.36, 1)'
+const playerChipTransition = { duration: 0.55, easing: livelySpringEasing } as const
+const ctaHoverState = { scale: 1.05, y: -2, boxShadow: '0 16px 35px rgba(14, 165, 233, 0.25)' }
+const ctaPressState = { scale: 0.95 }
+const resultOverlayTransition = { duration: 0.55, easing: livelySpringEasing } as const
+
+const getPlayerChipAnimation = (playerSymbol: PlayerSymbol, playerIndex: number) => {
+  const isWinner = winner.value === playerSymbol
+  const isActive = currentPlayerIndex.value === playerIndex && !winner.value
+
+  return {
+    opacity: 1,
+    y: isWinner ? -10 : isActive ? -6 : 0,
+    scale: isWinner ? 1.08 : isActive ? 1.03 : 1,
+    boxShadow: isWinner
+      ? '0 14px 32px rgba(250, 204, 21, 0.42)'
+      : isActive
+        ? '0 10px 24px rgba(79, 70, 229, 0.32)'
+        : '0 4px 12px rgba(15, 23, 42, 0.14)'
+  }
+}
+
+const getCellMotionState = (row: number, col: number, value: string) => {
+  const winning = isWinningCell(row, col)
+  const justPlaced = isLastPlacedCell(row, col)
+  const filled = value !== ''
+
+  if (justPlaced) {
+    return {
+      opacity: 1,
+      scale: [0.85, 1.1, 1],
+      rotate: [-4, 0],
+      boxShadow: '0 24px 45px rgba(99, 102, 241, 0.35)'
+    }
+  }
+
+  if (winning && shouldAnimateWinningCells.value) {
+    return {
+      opacity: 1,
+      scale: [1, 1.08, 1],
+      boxShadow: '0 20px 55px rgba(34, 197, 94, 0.45)',
+      rotate: 0
+    }
+  }
+
+  if (winning) {
+    return {
+      opacity: 1,
+      scale: 1,
+      boxShadow: 'none',
+      rotate: 0
+    }
+  }
+
+  if (filled) {
+    return {
+      opacity: 1,
+      scale: 1,
+      boxShadow: 'none',
+      rotate: 0
+    }
+  }
+
+  return {
+    opacity: 0.92,
+    scale: 1,
+    boxShadow: 'none',
+    rotate: 0
+  }
+}
+
+const getCellMotionTransition = (row: number, col: number) => {
+  if (isLastPlacedCell(row, col)) {
+    return {
+      duration: 0.65,
+      easing: livelySpringEasing
+    }
+  }
+
+  if (isWinningCell(row, col) && shouldAnimateWinningCells.value) {
+    return {
+      duration: 1.1,
+      easing: 'ease-in-out',
+      repeat: Infinity,
+      repeatType: 'mirror'
+    }
+  }
+
+  return {
+    duration: 0.4,
+    easing: 'ease-out'
+  }
+}
+
+const expandBoard = (row: number, col: number) => {
+  // Set expanding flag to prevent animation on existing cells
+  isExpanding.value = true
+
+  const newBoard = [...board.value]
+  const expandTop = row === 0
+  const expandBottom = row === boardSize.value.rows - 1
+  const expandLeft = col === 0
+  const expandRight = col === boardSize.value.cols - 1
+
+  if (expandTop) {
     newBoard.unshift(Array(boardSize.value.cols).fill(''))
     boardSize.value.rows++
     boardOffset.value.row++
@@ -458,17 +817,16 @@ const expandBoard = (row: number, col: number) => {
     moveHistory.value.forEach(move => move.row++)
   }
 
-  // In gravity mode, never expand downward (maintain hard ground)
-  if (row === boardSize.value.rows - 1 && props.gameMode !== 'gravity') {
+  if (expandBottom) {
     newBoard.push(Array(boardSize.value.cols).fill(''))
     boardSize.value.rows++
   }
 
-  if (col === 0) {
+  if (expandLeft) {
     for (let i = 0; i < newBoard.length; i++) {
-      const row = newBoard[i]
-      if (row) {
-        newBoard[i] = ['', ...row]
+      const currentRow = newBoard[i]
+      if (currentRow) {
+        newBoard[i] = ['', ...currentRow]
       }
     }
     boardSize.value.cols++
@@ -477,11 +835,11 @@ const expandBoard = (row: number, col: number) => {
     moveHistory.value.forEach(move => move.col++)
   }
 
-  if (col === boardSize.value.cols - 1) {
+  if (expandRight) {
     for (let i = 0; i < newBoard.length; i++) {
-      const row = newBoard[i]
-      if (row) {
-        newBoard[i] = [...row, '']
+      const currentRow = newBoard[i]
+      if (currentRow) {
+        newBoard[i] = [...currentRow, '']
       }
     }
     boardSize.value.cols++
@@ -491,13 +849,7 @@ const expandBoard = (row: number, col: number) => {
 }
 
 const checkWinner = () => {
-  // King of the Hill mode has different win condition
-  if (props.gameMode === 'kingofthehill') {
-    checkKingOfTheHillWinner()
-    return
-  }
-
-  // Traditional win condition for other modes
+  // Classic mode traditional win condition
   const rows = boardSize.value.rows
   const cols = boardSize.value.cols
   const len = winLength.value
@@ -518,7 +870,6 @@ const checkWinner = () => {
         }
         if (match) {
           winner.value = cell
-          winReason.value = 'traditional'
           winningCells.value = Array.from({ length: len }, (_, i) => ({ row, col: col + i }))
           return
         }
@@ -535,7 +886,6 @@ const checkWinner = () => {
         }
         if (match) {
           winner.value = cell
-          winReason.value = 'traditional'
           winningCells.value = Array.from({ length: len }, (_, i) => ({ row: row + i, col }))
           return
         }
@@ -552,7 +902,6 @@ const checkWinner = () => {
         }
         if (match) {
           winner.value = cell
-          winReason.value = 'traditional'
           winningCells.value = Array.from({ length: len }, (_, i) => ({ row: row + i, col: col + i }))
           return
         }
@@ -569,7 +918,6 @@ const checkWinner = () => {
         }
         if (match) {
           winner.value = cell
-          winReason.value = 'traditional'
           winningCells.value = Array.from({ length: len }, (_, i) => ({ row: row + i, col: col - i }))
           return
         }
@@ -594,130 +942,76 @@ const scrollToCenter = async () => {
 }
 
 const makeMove = async (row: number, col: number) => {
-  if (winner.value || isDraw.value || isAnimating.value) {
+  if (winner.value || isDraw.value) {
     return
   }
 
-  let targetRow = row
-  let targetCol = col
+  // Classic mode logic
+  if (!board.value[row] || board.value[row][col] !== '') {
+    return
+  }
 
-  if (props.gameMode === 'gravity') {
-    // In gravity mode, handle board expansion first if needed
-    let needsExpansion = false
-    let expandCol = col
+  // Check if the cell is adjacent to an existing piece (or is the first move)
+  if (!isAdjacentToFilledCell(row, col)) {
+    return
+  }
 
-    if (col === 0) {
-      // Expand left
-      expandBoard(row, col)
-      expandCol = col + 1 // Adjust column after left expansion
-      needsExpansion = true
-    } else if (col === boardSize.value.cols - 1) {
-      // Expand right
-      expandBoard(row, col)
-      expandCol = col // Column stays the same for right expansion
-      needsExpansion = true
-    } else if (row === 0) {
-      // Expand up
-      expandBoard(row, col)
-      expandCol = col
-      needsExpansion = true
+  // Determine if the board needs to grow before placing the piece
+  const expandTop = row === 0
+  const expandBottom = row === boardSize.value.rows - 1
+  const expandLeft = col === 0
+  const expandRight = col === boardSize.value.cols - 1
+  const needsExpansion = expandTop || expandBottom || expandLeft || expandRight
+
+  if (needsExpansion) {
+    expandBoard(row, col)
+    await nextTick()
+    // Expansion is complete before placement so animations can play normally
+    isExpanding.value = false
+  }
+
+  // Adjust target coordinates if we prepended a row/column
+  let targetRow = row + (expandTop ? 1 : 0)
+  let targetCol = col + (expandLeft ? 1 : 0)
+
+  const currentRow = board.value[targetRow]
+  if (!currentRow) return
+  currentRow[targetCol] = props.players[currentPlayerIndex.value]?.symbol || ''
+
+  // Track this cell for animation
+  lastPlacedCell.value = { row: targetRow, col: targetCol }
+  recencyHighlightCell.value = {
+    row: targetRow,
+    col: targetCol,
+    symbol: props.players[currentPlayerIndex.value]?.symbol || 'X'
+  }
+  // Clear after animation completes
+  setTimeout(() => {
+    lastPlacedCell.value = null
+  }, 900)
+
+  if (needsExpansion) {
+    // After expansion, center viewport on the placed piece (universal for all directions)
+    await nextTick()
+    if (boardElement.value) {
+      // Calculate piece position in pixels (using actual CSS gap of 8px)
+      const piecePixelX = targetCol * (cellSize.value + 8)
+      const piecePixelY = targetRow * (cellSize.value + 8)
+
+      // Calculate centering scroll position
+      const centerX = piecePixelX - (boardElement.value.clientWidth / 2) + (cellSize.value / 2)
+      const centerY = piecePixelY - (boardElement.value.clientHeight / 2) + (cellSize.value / 2)
+
+      boardElement.value.scrollTo({
+        left: Math.max(0, centerX),
+        top: Math.max(0, centerY),
+        behavior: 'smooth'
+      })
     }
 
-    // After potential expansion, find where piece falls to ground
-    targetRow = findLowestAvailableRow(expandCol)
-    if (targetRow === -1) {
-      return // Column is full
-    }
-    targetCol = expandCol
-
-    // Start falling animation
-    const fromRow = needsExpansion && row === 0 ? 0 : row
-    const symbol = props.players[currentPlayerIndex.value]?.symbol || ''
-
-    fallingPiece.value = {
-      fromRow,
-      toRow: targetRow,
-      col: targetCol,
-      symbol
-    }
-    isAnimating.value = true
-
-    // Wait for animation to complete, then place the piece
-    await new Promise(resolve => setTimeout(resolve, 600)) // Animation duration
-
-    board.value[targetRow][targetCol] = symbol
-    fallingPiece.value = null
-    isAnimating.value = false
-
-    // Handle scroll adjustment if we expanded
-    if (needsExpansion) {
-      await nextTick()
-      if (boardElement.value) {
-        if (col === 0) {
-          // Adjust scroll for left expansion
-          const newScrollLeft = boardElement.value.scrollLeft + cellSize.value + 6
-          boardElement.value.scrollTo({
-            left: newScrollLeft,
-            top: boardElement.value.scrollTop,
-            behavior: 'auto'
-          })
-        } else if (row === 0) {
-          // Adjust scroll for top expansion
-          const newScrollTop = boardElement.value.scrollTop + cellSize.value + 6
-          boardElement.value.scrollTo({
-            left: boardElement.value.scrollLeft,
-            top: newScrollTop,
-            behavior: 'auto'
-          })
-        }
-      }
-    }
-  } else {
-    // Classic/Speed mode logic
-    if (!board.value[row] || board.value[row][col] !== '') {
-      return
-    }
-
-    // Check if the cell is adjacent to an existing piece (or is the first move)
-    if (!isAdjacentToFilledCell(row, col)) {
-      return
-    }
-
-    board.value[targetRow][targetCol] = props.players[currentPlayerIndex.value]?.symbol || ''
-
-    const wasEdgeCell = isEdgeCell(targetRow, targetCol)
-    if (wasEdgeCell) {
-      // Track if we're expanding at top or left edge (coordinates will shift)
-      const expandedAtTop = targetRow === 0
-      const expandedAtLeft = targetCol === 0
-
-      expandBoard(targetRow, targetCol)
-
-      // Update target coordinates to reflect post-expansion position
-      if (expandedAtTop) {
-        targetRow++
-      }
-      if (expandedAtLeft) {
-        targetCol++
-      }
-
-      // After expansion, adjust scroll to maintain relative position
-      await nextTick()
-      if (boardElement.value) {
-        // If we expanded on the top or left edges, we need to adjust the scroll
-        if (expandedAtTop || expandedAtLeft) {
-          // Scroll to maintain view of existing content
-          const newScrollLeft = expandedAtLeft ? boardElement.value.scrollLeft + cellSize.value + 6 : boardElement.value.scrollLeft
-          const newScrollTop = expandedAtTop ? boardElement.value.scrollTop + cellSize.value + 6 : boardElement.value.scrollTop
-
-          boardElement.value.scrollTo({
-            left: newScrollLeft,
-            top: newScrollTop,
-            behavior: 'auto' // Instant scroll for edge expansion
-          })
-        }
-      }
-    }
+    // Reset expanding flag after all DOM updates complete
+    await nextTick()
+    isExpanding.value = false
   }
 
   // Track move in history for recency heatmap
@@ -725,26 +1019,28 @@ const makeMove = async (row: number, col: number) => {
   moveHistory.value.unshift({
     row: targetRow,
     col: targetCol,
-    moveNumber: moveCounter.value
+    moveNumber: moveCounter.value,
+    symbol: props.players[currentPlayerIndex.value]?.symbol || ''
   })
-  // Keep only last 8 moves
-  if (moveHistory.value.length > 8) {
-    moveHistory.value = moveHistory.value.slice(0, 8)
+  // Keep only the configured number of recent moves (2 per player)
+  if (moveHistory.value.length > maxHistorySize.value) {
+    moveHistory.value = moveHistory.value.slice(0, maxHistorySize.value)
   }
 
   checkWinner()
 
   if (!winner.value && !isDraw.value) {
-    console.log('🎮 Move complete, advancing to next player')
+    console.log('Move complete, advancing to next player')
     currentPlayerIndex.value = (currentPlayerIndex.value + 1) % props.players.length
-    // Start timer for next player in Speed Mode
-    if (props.gameMode === 'speed') {
-      console.log('⏰ Starting timer for next player after move')
+
+    // Start timer for next player if Time Limit rule is active
+    if (hasTimeLimitRule.value) {
+      console.log('Starting timer for next player after move')
       startTimer()
     }
   } else {
     // Game ended, clear timer
-    console.log('🏆 Game ended, clearing timer')
+    console.log('Game ended, clearing timer')
     clearTimer()
   }
 }
@@ -822,29 +1118,24 @@ const getTwoInARowType = (row: number, col: number): string => {
 }
 
 // Recency heatmap functions
-const getRecencyOpacity = (row: number, col: number): number => {
-  // Find if this cell is in the move history
-  const moveIndex = moveHistory.value.findIndex(
-    move => move.row === row && move.col === col
-  )
+const getRecencyData = (row: number, col: number): RecencyData | null => {
+  const data = recencyDataByCell.value.get(`${row}-${col}`)
+  const cellValue = board.value[row]?.[col]
 
-  if (moveIndex === -1) return 0 // Not in recent moves
+  // Only show recency glow when the cell actually holds the recorded symbol
+  if (!data || !cellValue || data.symbol !== cellValue) {
+    return null
+  }
 
-  // Calculate opacity: most recent (index 0) = 0.8, oldest = 0.1
-  // Linear gradient from 0.1 to 0.8
-  const historyLength = moveHistory.value.length
-  const recencyScore = (historyLength - moveIndex) / historyLength // 1.0 for newest, 0 for oldest
-  const opacity = 0.1 + (recencyScore * 0.7) // Range: 0.1 to 0.8
-
-  return opacity
+  return data
 }
 
-// Timer functions for Speed Mode
+// Timer functions for Time Limit rule
 const startTimer = () => {
-  console.log('🕐 Starting timer:', { gameMode: props.gameMode, timeLimit: props.timeLimit })
+  console.log('Starting timer:', { hasTimeLimitRule: hasTimeLimitRule.value, timeLimit: props.timeLimit })
 
-  if (props.gameMode !== 'speed' || !props.timeLimit) {
-    console.log('❌ Timer not started - not in speed mode or no time limit')
+  if (!hasTimeLimitRule.value || !props.timeLimit) {
+    console.log('Timer not started - Time Limit rule not active or no time limit set')
     return
   }
 
@@ -853,7 +1144,7 @@ const startTimer = () => {
   isTimerActive.value = true
   timerWarning.value = false
 
-  console.log('✅ Timer initialized:', { timeLeft: timeLeft.value, isActive: isTimerActive.value })
+  console.log('Timer initialized:', { timeLeft: timeLeft.value, isActive: isTimerActive.value })
 
   timerInterval.value = setInterval(() => {
     timeLeft.value = Math.max(0, timeLeft.value - (timerPrecision / 1000))
@@ -862,14 +1153,14 @@ const startTimer = () => {
     timeLeft.value = Math.round(timeLeft.value * 10) / 10
 
     if (timeLeft.value <= 0.1) {
-      console.log(`⏰ Timer tick: ${timeLeft.value.toFixed(1)}s remaining`)
+      console.log(`Timer tick: ${timeLeft.value.toFixed(1)}s remaining`)
     }
 
     // Show warning when 2 seconds or less (better for fast timers)
     timerWarning.value = timeLeft.value <= 2
 
     if (timeLeft.value <= 0) {
-      console.log('⏰ Time\'s up! Auto-advancing to next player')
+      console.log('Timer expired — auto-advancing to next player')
       // Time's up - auto-advance to next player
       handleTimeUp()
     }
@@ -877,7 +1168,7 @@ const startTimer = () => {
 }
 
 const clearTimer = () => {
-  console.log('🔄 Clearing timer')
+  console.log('Clearing timer')
   if (timerInterval.value) {
     clearInterval(timerInterval.value)
     timerInterval.value = null
@@ -887,69 +1178,29 @@ const clearTimer = () => {
 }
 
 const handleTimeUp = () => {
-  console.log('⏰ Handling time up - PLAYER LOSES!')
+  console.log('Handling time up - current player loses')
   clearTimer()
 
-  // Current player loses due to timeout
+  // In classic mode with time limit rule, when time runs out the current player loses
   if (!winner.value && !isDraw.value) {
     const currentPlayer = props.players[currentPlayerIndex.value]
-    console.log(`💀 ${currentPlayer?.name} (${currentPlayer?.symbol}) LOST due to timeout!`)
+    console.log(`${currentPlayer?.name} (${currentPlayer?.symbol}) lost due to timeout`)
 
-    // Set the current player as eliminated/loser
-    eliminatePlayer(currentPlayerIndex.value)
-
-    // Check if we have a winner (last player standing)
-    checkForWinnerByElimination()
-
-    // If game continues, advance to next player
-    if (!winner.value && !isDraw.value) {
-      currentPlayerIndex.value = getNextActivePlayerIndex()
-      startTimer() // Start timer for next player
+    // In a 2-player game, the other player wins
+    if (props.players.length === 2) {
+      const otherPlayerIndex = currentPlayerIndex.value === 0 ? 1 : 0
+      const otherPlayer = props.players[otherPlayerIndex]
+      if (otherPlayer) {
+        winner.value = otherPlayer.symbol
+        console.log(`${otherPlayer.name} wins by timeout!`)
+      }
+    } else {
+      // In 3+ player games, advance to next player (they get another chance)
+      // This is a simple approach - the timed-out player doesn't lose the whole game
+      currentPlayerIndex.value = (currentPlayerIndex.value + 1) % props.players.length
+      console.log('Timeout - advancing to next player')
+      startTimer()
     }
-  }
-}
-
-// Player elimination functions
-const eliminatePlayer = (playerIndex: number) => {
-  console.log(`🚫 Eliminating player ${playerIndex}: ${props.players[playerIndex]?.name}`)
-  eliminatedPlayers.value.add(playerIndex)
-}
-
-const getActivePlayers = () => {
-  return props.players.filter((_, index) => !eliminatedPlayers.value.has(index))
-}
-
-const getNextActivePlayerIndex = (): number => {
-  let nextIndex = (currentPlayerIndex.value + 1) % props.players.length
-
-  // Find next non-eliminated player
-  const startIndex = nextIndex
-  while (eliminatedPlayers.value.has(nextIndex)) {
-    nextIndex = (nextIndex + 1) % props.players.length
-    // Prevent infinite loop
-    if (nextIndex === startIndex) {
-      break
-    }
-  }
-
-  return nextIndex
-}
-
-const checkForWinnerByElimination = () => {
-  const activePlayers = getActivePlayers()
-  console.log(`🎯 Active players remaining: ${activePlayers.length}`)
-
-  if (activePlayers.length === 1) {
-    // Last player standing wins
-    const winnerPlayer = activePlayers[0]
-    if (winnerPlayer) {
-      winner.value = winnerPlayer.symbol
-      winReason.value = 'elimination'
-      console.log(`🏆 ${winnerPlayer.name} wins by elimination!`)
-    }
-  } else if (activePlayers.length === 0) {
-    // Shouldn't happen, but handle edge case
-    console.log('🤷 No players left - draw?')
   }
 }
 
@@ -1090,7 +1341,6 @@ const resetGame = async () => {
   boardOffset.value = { row: 0, col: 0 }
   currentPlayerIndex.value = 0
   winner.value = null
-  winReason.value = null
   winningCells.value = []
   showMapPopup.value = false
 
@@ -1104,16 +1354,10 @@ const resetGame = async () => {
   clearTimer()
   timeLeft.value = 0
 
-  // Reset elimination state
-  eliminatedPlayers.value.clear()
-
-  // Reset gravity animation state
-  fallingPiece.value = null
-  isAnimating.value = false
-
   // Reset move history
   moveHistory.value = []
   moveCounter.value = 0
+  recencyHighlightCell.value = null
 
   // Reset scroll position to center
   await scrollToCenter()
@@ -1121,22 +1365,34 @@ const resetGame = async () => {
 
 // Center the board on mount and add keyboard listener
 onMounted(() => {
-  console.log('🎯 GameBoard mounted with props:', { gameMode: props.gameMode, timeLimit: props.timeLimit, players: props.players.length })
+  console.log('GameBoard mounted with props:', { gameMode: props.gameMode, timeLimit: props.timeLimit, players: props.players.length })
   scrollToCenter()
   document.addEventListener('keydown', handleKeyDown)
 
-  // Start timer for first player in Speed Mode
-  if (props.gameMode === 'speed') {
-    console.log('🚀 Starting timer on mount for Speed Mode')
+  if (typeof window !== 'undefined') {
+    updateViewportSize()
+    window.addEventListener('resize', updateViewportSize, { passive: true })
+  }
+
+  // Start timer for first player if Time Limit rule is active
+  if (hasTimeLimitRule.value) {
+    console.log('Starting timer on mount - Time Limit rule is active')
     startTimer()
   } else {
-    console.log('⭐ In Classic Mode - no timer needed')
+    console.log('Time Limit rule not active - no timer started')
   }
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateViewportSize)
+  }
   clearTimer() // Clean up timer on component unmount
+  if (overlayRevealTimeout) {
+    clearTimeout(overlayRevealTimeout)
+    overlayRevealTimeout = null
+  }
 })
 
 // Expose resetGame method for parent component
@@ -1147,320 +1403,512 @@ defineExpose({
 
 <style scoped>
 .game-board-wrapper {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  width: min(720px, 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1.5rem 1rem;
-  width: 100vw;
-  height: 100vh;
-  gap: 1rem;
+  gap: var(--space-3);
 }
 
-.game-info-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 100;
-  text-align: center;
-  animation: overlayAppear 0.6s ease-out;
-  pointer-events: auto;
-}
-
-@keyframes overlayAppear {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.7);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-.game-result {
+.players-strip-wrapper {
+  position: relative;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 2.5rem 3.5rem;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95));
-  backdrop-filter: blur(20px);
-  border-radius: 24px;
-  box-shadow:
-    0 25px 60px rgba(0, 0, 0, 0.3),
-    0 10px 30px rgba(138, 43, 226, 0.2),
-    inset 0 0 40px rgba(255, 255, 255, 0.5);
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  animation: resultPulse 2s ease-in-out infinite;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2);
 }
 
-@keyframes resultPulse {
-
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow:
-      0 25px 60px rgba(0, 0, 0, 0.3),
-      0 10px 30px rgba(138, 43, 226, 0.2),
-      inset 0 0 40px rgba(255, 255, 255, 0.5);
-  }
-
-  50% {
-    transform: scale(1.02);
-    box-shadow:
-      0 30px 70px rgba(0, 0, 0, 0.35),
-      0 15px 40px rgba(138, 43, 226, 0.25),
-      inset 0 0 50px rgba(255, 255, 255, 0.6);
-  }
+.players-strip {
+  --chip-glow-space: 32px;
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: var(--space-2) var(--chip-glow-space);
+  width: 100%;
+  justify-content: center;
+  scroll-padding-inline: var(--chip-glow-space);
+  scrollbar-gutter: stable both-edges;
 }
 
-.victory-text,
-.draw-text {
-  font-size: 2.2rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 3px;
-  line-height: 1.2;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+.players-strip::before,
+.players-strip::after {
+  content: '';
+  flex: 0 0 var(--chip-glow-space);
 }
 
-.victory-text {
-  background: linear-gradient(45deg, #ffd700, #ff6ec4, #7873f5);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  background-size: 200% 200%;
-  animation: victoryGradient 3s ease infinite;
+.victory-badge-chip {
+  position: absolute;
+  top: -0.35rem;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.9);
+  pointer-events: none;
 }
 
-.elimination-text {
-  background: linear-gradient(45deg, #ff6b00, #e65100, #ffd54f, #ff9800) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-  background-size: 200% 200% !important;
-  animation: eliminationGradient 2.5s ease infinite !important;
+.victory-badge-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
-@keyframes victoryGradient {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
+.victory-badge-subtle {
+  font-size: 0.72rem;
+  opacity: 0.8;
 }
 
-@keyframes eliminationGradient {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
+.player-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  flex: 0 0 auto;
+  position: relative;
+  transition: border var(--transition-base), transform var(--transition-base), opacity var(--transition-base);
 }
 
-.elimination-victory {
-  background: linear-gradient(135deg, rgba(255, 107, 0, 0.15), rgba(230, 81, 0, 0.12), rgba(255, 255, 255, 0.95)) !important;
-  border: 2px solid rgba(255, 107, 0, 0.4) !important;
-  box-shadow:
-    0 25px 60px rgba(255, 107, 0, 0.2),
-    0 10px 30px rgba(230, 81, 0, 0.15),
-    inset 0 0 40px rgba(255, 152, 0, 0.1) !important;
+.player-chip[data-symbol="x"] {
+  border-color: rgba(33, 150, 243, 0.55);
+  background: rgba(33, 150, 243, 0.18);
+}
+.player-chip[data-symbol="o"] {
+  border-color: rgba(244, 67, 54, 0.55);
+  background: rgba(244, 67, 54, 0.18);
+}
+.player-chip[data-symbol="square"] {
+  border-color: rgba(156, 39, 176, 0.55);
+  background: rgba(156, 39, 176, 0.18);
+}
+.player-chip[data-symbol="star"] {
+  border-color: rgba(255, 152, 0, 0.55);
+  background: rgba(255, 152, 0, 0.18);
+}
+.player-chip[data-symbol="triangle"] {
+  border-color: rgba(76, 175, 80, 0.55);
+  background: rgba(76, 175, 80, 0.18);
+}
+.player-chip[data-symbol="diamond"] {
+  border-color: rgba(0, 188, 212, 0.55);
+  background: rgba(0, 188, 212, 0.18);
+}
+.player-chip[data-symbol="circle"] {
+  border-color: rgba(255, 235, 59, 0.6);
+  background: rgba(255, 235, 59, 0.25);
+  color: #1f2937;
+}
+.player-chip[data-symbol="plus"] {
+  border-color: rgba(233, 30, 99, 0.55);
+  background: rgba(233, 30, 99, 0.18);
+}
+.player-chip[data-symbol="heart"] {
+  border-color: rgba(255, 87, 34, 0.55);
+  background: rgba(255, 87, 34, 0.18);
+}
+.player-chip[data-symbol="pentagon"] {
+  border-color: rgba(121, 85, 72, 0.55);
+  background: rgba(121, 85, 72, 0.2);
 }
 
-.winner-name {
-  font-size: 1.3rem;
-  color: #444;
+
+.player-chip.active {
+  border-color: var(--neon-cyan);
+  background: rgba(0, 217, 255, 0.12);
+  box-shadow: 0 10px 24px rgba(0, 217, 255, 0.28);
+  animation: playerChipPulse 2s ease-in-out infinite;
+}
+
+.player-chip.winner {
+  border-color: rgba(34, 197, 94, 0.6);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.player-chip.eliminated {
+  opacity: 0.5;
+}
+
+.player-symbol {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.player-name {
   font-weight: 600;
-  letter-spacing: 0.5px;
-  opacity: 0.9;
 }
 
-.draw-text {
-  background: linear-gradient(90deg, #48dbfb, #0abde3, #006ba6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.turn-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
 }
 
-.draw-subtitle {
-  font-size: 1.1rem;
-  color: #555;
-  font-weight: 400;
-  font-style: italic;
-  opacity: 0.85;
+.turn-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18);
+}
+
+.timer-display {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.timer-display.warning {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.timer-circle {
+  display: grid;
+  place-items: center;
+}
+
+.timer-svg {
+  width: 26px;
+  height: 26px;
+}
+
+.timer-bg {
+  fill: none;
+  stroke: rgba(148, 163, 184, 0.25);
+  stroke-width: 3;
+}
+
+.timer-progress {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.timer-text {
+  font-size: var(--text-xs);
+}
+
+.status-tag {
+  font-size: var(--text-xs);
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: rgba(34, 197, 94, 0.14);
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.status-tag.eliminated {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.team-indicator {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.player-chip.team-0 .team-indicator {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(99, 102, 241, 0.25));
+  color: rgb(59, 130, 246);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.player-chip.team-1 .team-indicator {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.25));
+  color: rgb(239, 68, 68);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.board-info-row {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
 }
 
 .board-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  width: calc(100% - 2rem);
-  max-width: min(90vw, 900px);
-  min-height: 0;
-  padding: 1.25rem;
-  border-radius: 24px;
   position: relative;
-  overflow: hidden;
-  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .board {
   display: grid;
-  gap: 5px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08));
-  backdrop-filter: blur(15px);
-  padding: 10px;
-  border-radius: 18px;
-  max-height: calc(100% - 3.5rem);
-  max-width: 100%;
+  gap: 8px;
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  border: 2px solid var(--neon-cyan);
+  box-shadow:
+    inset 0 0 20px rgba(0, 217, 255, 0.1),
+    0 0 20px rgba(0, 217, 255, 0.3),
+    0 0 40px rgba(0, 217, 255, 0.2);
   overflow: auto;
-  box-shadow:
-    0 8px 25px rgba(0, 0, 0, 0.15),
-    inset 0 0 20px rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  animation: boardPulse 8s ease-in-out infinite;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(138, 43, 226, 0.5) rgba(255, 255, 255, 0.15);
+  max-height: 70vh;
+  position: relative;
 }
 
-.board::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-.board::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-  border: 1px solid rgba(138, 43, 226, 0.08);
-  margin: 3px;
-}
-
-.board::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, rgba(138, 43, 226, 0.6), rgba(255, 119, 48, 0.6));
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow:
-    inset 0 0 4px rgba(255, 255, 255, 0.2),
-    0 0 6px rgba(138, 43, 226, 0.3);
-}
-
-.board::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, rgba(138, 43, 226, 0.9), rgba(255, 119, 48, 0.9));
-  border-color: rgba(255, 255, 255, 0.5);
-  box-shadow:
-    inset 0 0 8px rgba(255, 255, 255, 0.4),
-    0 0 12px rgba(138, 43, 226, 0.6);
-}
-
-.board::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(135deg, rgba(138, 43, 226, 1), rgba(255, 119, 48, 1));
-}
-
-.board::-webkit-scrollbar-corner {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-}
-
-@keyframes boardPulse {
-
-  0%,
-  100% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.01);
-  }
+/* Grid glow effect */
+.board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent calc(100% / var(--grid-cols) - 1px),
+                    rgba(0, 217, 255, 0.2) calc(100% / var(--grid-cols)),
+                    rgba(0, 217, 255, 0.2) calc(100% / var(--grid-cols) + 1px),
+                    transparent calc(100% / var(--grid-cols) + 2px));
+  filter: blur(2px);
+  opacity: 0.3;
+  animation: gridPulse 3s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: inherit;
 }
 
 .cell {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(245, 245, 255, 0.95));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  color: #333;
-  border-radius: 10px;
   position: relative;
-  overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(138, 43, 226, 0.05);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(26, 29, 53, 0.6);
+  border: 2px solid rgba(0, 217, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+  cursor: pointer;
 }
 
-.cell::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  background: radial-gradient(circle, rgba(138, 43, 226, 0.3), transparent);
-  transition: all 0.5s ease;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-}
-
-.cell:hover:not(.disabled)::before {
-  width: 150%;
-  height: 150%;
-}
-
-.cell:hover:not(.disabled) {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(250, 240, 255, 1));
-  transform: translateY(-2px) scale(1.05);
+.cell:hover:not(.cell-filled):not(.disabled) {
+  border-color: var(--neon-cyan);
+  background: rgba(0, 217, 255, 0.05);
   box-shadow:
-    0 5px 15px rgba(138, 43, 226, 0.3),
-    0 3px 8px rgba(255, 119, 48, 0.2);
+    0 0 15px rgba(0, 217, 255, 0.3),
+    inset 0 0 15px rgba(0, 217, 255, 0.1);
+  transform: scale(1.05);
+}
+
+.cell-filled[data-symbol="x"] {
+  background: rgba(0, 217, 255, 0.1);
+  border-color: var(--neon-cyan);
+  box-shadow: var(--glow-x);
+}
+.cell-filled[data-symbol="o"] {
+  background: rgba(255, 51, 102, 0.1);
+  border-color: var(--neon-pink);
+  box-shadow: var(--glow-o);
+}
+.cell-filled[data-symbol="square"] {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: var(--neon-purple);
+  box-shadow: var(--glow-square);
+}
+.cell-filled[data-symbol="star"] {
+  background: rgba(255, 184, 0, 0.1);
+  border-color: var(--neon-orange);
+  box-shadow: var(--glow-star);
+}
+.cell-filled[data-symbol="triangle"] {
+  background: rgba(0, 255, 159, 0.1);
+  border-color: var(--neon-green);
+  box-shadow: var(--glow-triangle);
+}
+.cell-filled[data-symbol="diamond"] {
+  background: rgba(33, 150, 243, 0.1);
+  border-color: var(--neon-blue);
+  box-shadow: var(--glow-diamond);
+}
+.cell-filled[data-symbol="circle"] {
+  background: rgba(255, 235, 59, 0.1);
+  border-color: var(--neon-yellow);
+  box-shadow: var(--glow-circle);
+}
+.cell-filled[data-symbol="plus"] {
+  background: rgba(244, 67, 54, 0.1);
+  border-color: var(--neon-red);
+  box-shadow: var(--glow-plus);
+}
+.cell-filled[data-symbol="heart"] {
+  background: rgba(0, 188, 212, 0.1);
+  border-color: var(--neon-teal);
+  box-shadow: var(--glow-heart);
+}
+.cell-filled[data-symbol="pentagon"] {
+  background: rgba(205, 220, 57, 0.1);
+  border-color: var(--neon-lime);
+  box-shadow: var(--glow-pentagon);
+}
+
+/* Only animate the cell that was just placed */
+.cell-just-placed {
+  animation: cellAppear 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) both;
+}
+
+
+.cell:not(.disabled):hover {
+  border-color: rgba(99, 102, 241, 0.45);
+  transform: translateY(-2px);
 }
 
 .cell.disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  opacity: 0.9;
+}
+
+.cell.disabled-patterned {
+  cursor: not-allowed;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      rgba(100, 100, 120, 0.15) 4px,
+      rgba(100, 100, 120, 0.15) 8px
+    );
+}
+
+/* Not-playable cell styles - Shaded Overlay option */
+.cell.not-playable {
+  /* Semi-transparent dark tint overlay */
+  background: rgba(10, 15, 30, 0.65);
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-color: rgba(71, 85, 105, 0.25);
+  pointer-events: none;
+}
+
+/* Not-playable cell styles - Patterned Background option */
+.cell.not-playable-patterned {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(15, 20, 35, 0.4),
+      rgba(15, 20, 35, 0.4) 4px,
+      rgba(20, 25, 40, 0.5) 4px,
+      rgba(20, 25, 40, 0.5) 8px
+    ),
+    rgba(10, 15, 30, 0.45);
+  cursor: not-allowed;
+  border-color: rgba(71, 85, 105, 0.25);
+  pointer-events: none;
+}
+
+/* Remove hover effects for not-playable cells */
+.cell.not-playable:hover,
+.cell.not-playable-patterned:hover {
+  transform: none;
+  border-color: rgba(71, 85, 105, 0.25);
+}
+
+/* Alert icon positioning */
+.not-playable-indicator {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: rgba(10, 15, 30, 0.7);
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.cell.gravity-landing {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.cell.gravity-column {
+  border-style: dashed;
+  border-color: rgba(14, 165, 233, 0.45);
+}
+
+.cell.winning-cell {
+  border-color: var(--neon-green);
+  background: linear-gradient(135deg, rgba(0, 255, 159, 0.15), rgba(0, 255, 159, 0.25));
+  animation: winningPulse 1s ease-in-out infinite;
+}
+
+/* Hexagonal cell styles */
+.board.hex-board {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hex-row-gap, 12px);
+}
+
+.board.hex-board .cell {
+  flex: 0 0 auto;
+}
+
+.hex-row {
+  display: flex;
+  gap: var(--hex-column-gap, 12px);
+  justify-content: center;
+  width: max-content;
+}
+
+.hex-row.hex-row-offset {
+  margin-left: var(--hex-row-offset, 24px);
+}
+
+.hex-cell {
+  clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%);
+  border-radius: 0;
+  width: var(--cell-size, 80px);
+  height: calc(var(--cell-size, 80px) * 0.866);
+  aspect-ratio: auto;
+}
+
+.hex-cell:not(.disabled):hover {
+  transform: scale(1.05);
 }
 
 .recency-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(circle, rgba(72, 219, 251, 0.9), rgba(138, 43, 226, 0.6));
-  pointer-events: none;
-  z-index: 1;
+  inset: 6px;
   border-radius: 10px;
-  animation: recencyPulse 2s ease-in-out infinite;
-}
-
-@keyframes recencyPulse {
-  0%, 100% {
-    transform: scale(0.98);
-  }
-  50% {
-    transform: scale(1);
-  }
+  pointer-events: none;
 }
 
 .cell-icon {
@@ -1468,1134 +1916,382 @@ defineExpose({
   z-index: 2;
 }
 
-.cell.edge:not(.disabled) {
-  animation: edgePulse 2s ease-in-out infinite;
-  box-shadow:
-    inset 0 0 0 3px rgba(76, 215, 80, 0.4),
-    0 0 20px rgba(76, 215, 80, 0.2);
-}
-
-@keyframes edgePulse {
-
-  0%,
-  100% {
-    box-shadow:
-      inset 0 0 0 3px rgba(76, 215, 80, 0.4),
-      0 0 20px rgba(76, 215, 80, 0.2);
-  }
-
-  50% {
-    box-shadow:
-      inset 0 0 0 3px rgba(76, 215, 80, 0.6),
-      0 0 30px rgba(76, 215, 80, 0.4);
-  }
-}
-
-.cell.edge:not(.disabled):hover {
-  background: linear-gradient(135deg, rgba(232, 255, 233, 1), rgba(200, 255, 200, 0.9));
-  transform: translateY(-3px) scale(1.08);
-}
-
-.cell.not-playable {
-  background: linear-gradient(135deg, rgba(200, 200, 200, 0.5), rgba(180, 180, 180, 0.4));
-  cursor: not-allowed;
-  opacity: 0.6;
-  border: 1px solid rgba(138, 43, 226, 0.08);
-}
-
-.cell.not-playable:hover {
-  background: linear-gradient(135deg, rgba(200, 200, 200, 0.3), rgba(180, 180, 180, 0.2));
-  transform: none;
-  box-shadow: none;
-}
-
-/* Gravity landing cells - where pieces will actually land (GREEN) */
-.cell.gravity-landing {
-  background: linear-gradient(135deg, rgba(76, 215, 80, 0.2), rgba(129, 199, 132, 0.15));
-  border: 2px solid rgba(76, 215, 80, 0.6);
-  animation: gravityLandingPulse 2s ease-in-out infinite;
-  box-shadow:
-    0 0 15px rgba(76, 215, 80, 0.3),
-    0 3px 8px rgba(129, 199, 132, 0.2);
-}
-
-@keyframes gravityLandingPulse {
-  0%, 100% {
-    border-color: rgba(76, 215, 80, 0.6);
-    background: linear-gradient(135deg, rgba(76, 215, 80, 0.2), rgba(129, 199, 132, 0.15));
-    box-shadow:
-      0 0 15px rgba(76, 215, 80, 0.3),
-      0 3px 8px rgba(129, 199, 132, 0.2);
-  }
-  50% {
-    border-color: rgba(76, 215, 80, 0.8);
-    background: linear-gradient(135deg, rgba(76, 215, 80, 0.3), rgba(129, 199, 132, 0.25));
-    box-shadow:
-      0 0 25px rgba(76, 215, 80, 0.5),
-      0 5px 12px rgba(129, 199, 132, 0.3);
-  }
-}
-
-.cell.gravity-landing:hover {
-  background: linear-gradient(135deg, rgba(76, 215, 80, 0.4), rgba(129, 199, 132, 0.3));
-  border-color: rgba(76, 215, 80, 0.9);
-  transform: translateY(-2px) scale(1.05);
-  box-shadow:
-    0 0 30px rgba(76, 215, 80, 0.6),
-    0 6px 15px rgba(129, 199, 132, 0.4);
-}
-
-/* Gravity column cells - other playable cells in column (BLUE) */
-.cell.gravity-column {
-  background: linear-gradient(135deg, rgba(0, 200, 255, 0.1), rgba(0, 150, 255, 0.05));
-  border: 2px dashed rgba(0, 200, 255, 0.4);
-  animation: gravityColumnPulse 2s ease-in-out infinite;
-}
-
-@keyframes gravityColumnPulse {
-  0%, 100% {
-    border-color: rgba(0, 200, 255, 0.4);
-    background: linear-gradient(135deg, rgba(0, 200, 255, 0.1), rgba(0, 150, 255, 0.05));
-  }
-  50% {
-    border-color: rgba(0, 200, 255, 0.7);
-    background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 150, 255, 0.1));
-  }
-}
-
-.cell.gravity-column:hover {
-  background: linear-gradient(135deg, rgba(0, 200, 255, 0.3), rgba(0, 150, 255, 0.2));
-  border-color: rgba(0, 200, 255, 0.8);
-  transform: translateY(-2px) scale(1.05);
-  box-shadow:
-    0 5px 15px rgba(0, 200, 255, 0.4),
-    0 3px 8px rgba(0, 150, 255, 0.3);
-}
-
-/* Ground line for gravity mode */
-.ground-line {
+.game-info-overlay {
   position: absolute;
-  height: 4px;
-  background: linear-gradient(90deg, #8B4513, #D2691E, #8B4513);
-  border-radius: 2px;
-  box-shadow:
-    0 2px 8px rgba(139, 69, 19, 0.6),
-    0 4px 16px rgba(139, 69, 19, 0.3),
-    inset 0 1px 2px rgba(255, 255, 255, 0.3);
-  z-index: 1000;
-  animation: groundGlow 3s ease-in-out infinite;
-}
-
-@keyframes groundGlow {
-  0%, 100% {
-    box-shadow:
-      0 2px 8px rgba(139, 69, 19, 0.6),
-      0 4px 16px rgba(139, 69, 19, 0.3),
-      inset 0 1px 2px rgba(255, 255, 255, 0.3);
-  }
-  50% {
-    box-shadow:
-      0 3px 12px rgba(139, 69, 19, 0.8),
-      0 6px 20px rgba(139, 69, 19, 0.5),
-      inset 0 2px 4px rgba(255, 255, 255, 0.4);
-  }
-}
-
-/* Ground-level cells styling */
-.cell.ground-cell {
-  background: linear-gradient(135deg, rgba(139, 69, 19, 0.15), rgba(210, 105, 30, 0.1)) !important;
-  border-bottom: 3px solid rgba(139, 69, 19, 0.8) !important;
-  box-shadow:
-    0 3px 8px rgba(139, 69, 19, 0.4),
-    inset 0 -2px 4px rgba(139, 69, 19, 0.2) !important;
-}
-
-.cell.ground-cell.gravity-landing {
-  background: linear-gradient(135deg, rgba(76, 215, 80, 0.3), rgba(139, 69, 19, 0.15)) !important;
-  border: 2px solid rgba(76, 215, 80, 0.6) !important;
-  border-bottom: 3px solid rgba(139, 69, 19, 0.8) !important;
-  box-shadow:
-    0 0 15px rgba(76, 215, 80, 0.4),
-    0 3px 8px rgba(139, 69, 19, 0.4),
-    inset 0 -2px 4px rgba(139, 69, 19, 0.2) !important;
-}
-
-.cell.ground-cell.gravity-column {
-  background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(139, 69, 19, 0.15)) !important;
-  border: 2px dashed rgba(0, 200, 255, 0.6) !important;
-  border-bottom: 3px solid rgba(139, 69, 19, 0.8) !important;
-}
-
-.board-info {
-  display: flex;
-  gap: 2.5rem;
-  justify-content: center;
-  padding: 0.75rem 2rem;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.12));
-  backdrop-filter: blur(15px);
-  border-radius: 14px;
-  flex-shrink: 0;
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 2px rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.info-item {
+  inset: var(--space-4);
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
   align-items: center;
-  gap: 0.25rem;
+  justify-content: center;
+  background: rgba(10, 16, 32, 0.92);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  text-align: center;
+  backdrop-filter: blur(16px);
+  z-index: 10;
 }
 
-.info-label {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.8);
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
+.victory-text,
+.draw-text {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
   font-weight: 600;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #eef2ff;
 }
 
-.info-value {
-  font-size: 1rem;
-  color: white;
-  font-weight: 700;
-  text-shadow: 0 2px 8px rgba(138, 43, 226, 0.3);
+.elimination-victory .victory-text {
+  color: #fbbf24;
 }
 
-.players-list {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  align-items: stretch;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-  padding: 1rem 1.5rem;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08));
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    inset 0 2px 4px rgba(255, 255, 255, 0.1);
-  min-height: 72px;
-}
-
-.player-wrapper {
-  border: 2px solid rgba(200, 200, 200, 0.3);
-  border-radius: 16px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  box-shadow:
-    0 0 15px rgba(255, 255, 255, 0.2),
-    0 2px 8px rgba(0, 0, 0, 0.06);
-  min-width: 140px;
-}
-
-.player-wrapper.active {
-  border-color: rgba(138, 43, 226, 0.7);
-  box-shadow:
-    0 0 30px rgba(138, 43, 226, 0.4),
-    0 0 15px rgba(255, 119, 48, 0.3);
-  animation: activeGlow 2s ease-in-out infinite;
-}
-
-@keyframes activeGlow {
-
-  0%,
-  100% {
-    box-shadow:
-      0 0 30px rgba(138, 43, 226, 0.4),
-      0 0 15px rgba(255, 119, 48, 0.3);
-  }
-
-  50% {
-    box-shadow:
-      0 0 40px rgba(138, 43, 226, 0.6),
-      0 0 20px rgba(255, 119, 48, 0.4);
-  }
-}
-
-.player-wrapper.winner {
-  border-color: rgba(255, 215, 0, 0.5);
-  box-shadow:
-    0 8px 24px rgba(255, 215, 0, 0.2),
-    0 4px 12px rgba(255, 165, 0, 0.15);
-}
-
-.player-wrapper.eliminated {
-  border-color: rgba(200, 200, 200, 0.3);
-  opacity: 0.5;
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.1),
-    inset 0 0 20px rgba(0, 0, 0, 0.1);
-  filter: grayscale(0.7);
-  animation: eliminatedPulse 2s ease-in-out infinite;
-}
-
-@keyframes eliminatedPulse {
-  0%, 100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.6;
-  }
-}
-
-.player {
-  padding: 0.75rem 1.25rem;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-  position: relative;
-  min-height: 52px;
-  transition: background 0.3s ease;
-}
-
-.player-wrapper.active .player {
-  background: linear-gradient(135deg, #fff, rgba(245, 235, 255, 0.95));
-  padding-right: 3rem;
-}
-
-.player-wrapper.winner .player {
-  background: linear-gradient(135deg, #fff, rgba(255, 250, 230, 0.95));
-}
-
-.turn-indicator {
-  position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-}
-
-.turn-arrow {
-  color: #8a2be2;
-  font-size: 1.2rem;
-  font-weight: bold;
-  animation: arrowPulse 1s ease-in-out infinite;
-  filter: drop-shadow(0 2px 4px rgba(138, 43, 226, 0.3));
-}
-
-@keyframes arrowPulse {
-
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  50% {
-    transform: translateX(-3px);
-  }
-}
-
-.player-symbol {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-}
-
-.player-name {
-  font-size: 1rem;
-  color: #2c3e50;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  line-height: 1.2;
-  flex: 1;
-}
-
-.player-wrapper.active .player-name {
-  color: #6c3ab5;
-  font-weight: 700;
-}
-
-.winner-badge {
-  background: linear-gradient(135deg, #FFD700, #FFA500);
-  color: white;
-  padding: 0.35rem 0.8rem;
-  border-radius: 16px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  margin-left: auto;
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  box-shadow:
-    0 3px 12px rgba(255, 215, 0, 0.35),
-    inset 0 1px 3px rgba(255, 255, 255, 0.4);
-  animation: winnerGlow 1.2s ease-in-out infinite;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  line-height: 1;
-  display: flex;
-  align-items: center;
-}
-
-@keyframes winnerGlow {
-
-  0%,
-  100% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.1);
-  }
-}
-
-.eliminated-badge {
-  background: linear-gradient(135deg, #ff6b00, #e65100);
-  color: white;
-  padding: 0.4rem 1rem;
-  border-radius: 18px;
-  font-size: 0.85rem;
-  font-weight: 800;
-  margin-left: auto;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  box-shadow:
-    0 4px 16px rgba(255, 107, 0, 0.5),
-    0 8px 25px rgba(230, 81, 0, 0.3),
-    inset 0 1px 3px rgba(255, 255, 255, 0.4);
-  animation: eliminatedBadgeGlow 1.2s ease-in-out infinite;
-  border: 2px solid rgba(255, 152, 0, 0.6);
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  transform: scale(1.05);
-}
-
-@keyframes eliminatedBadgeGlow {
-  0%, 100% {
-    transform: scale(1.05);
-    opacity: 0.9;
-    box-shadow:
-      0 4px 16px rgba(255, 107, 0, 0.5),
-      0 8px 25px rgba(230, 81, 0, 0.3),
-      inset 0 1px 3px rgba(255, 255, 255, 0.4);
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 1;
-    box-shadow:
-      0 6px 20px rgba(255, 107, 0, 0.7),
-      0 10px 35px rgba(230, 81, 0, 0.5),
-      inset 0 2px 4px rgba(255, 255, 255, 0.6);
-  }
+.draw-subtitle,
+.elimination-text {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
 }
 
 .game-end-actions {
-  margin-top: 2rem;
   display: flex;
-  gap: 1rem;
+  gap: var(--space-2);
+  flex-wrap: wrap;
   justify-content: center;
-  animation: slideUp 0.6s ease-out 0.4s both;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .action-button {
-  padding: 0.8rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: white;
-  background: linear-gradient(135deg, rgba(138, 43, 226, 0.9), rgba(255, 119, 48, 0.9));
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  box-shadow:
-    0 4px 15px rgba(138, 43, 226, 0.3),
-    inset 0 1px 2px rgba(255, 255, 255, 0.2);
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  gap: var(--space-1);
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  transition: border var(--transition-base), transform var(--transition-base);
 }
 
-.action-button:hover {
-  background: linear-gradient(135deg, rgba(138, 43, 226, 1), rgba(255, 119, 48, 1));
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px) scale(1.05);
-  box-shadow:
-    0 6px 20px rgba(138, 43, 226, 0.4),
-    0 8px 25px rgba(255, 119, 48, 0.3),
-    inset 0 2px 3px rgba(255, 255, 255, 0.3);
-}
-
-.action-button:active {
-  transform: translateY(0) scale(0.98);
+.action-button:hover:not(:disabled) {
+  border-color: rgba(99, 102, 241, 0.45);
+  transform: translateY(-2px);
 }
 
 .button-icon {
-  font-size: 1.2rem;
+  width: 16px;
+  height: 16px;
 }
 
-.restart-button {
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.9), rgba(129, 199, 132, 0.9));
-}
-
-.restart-button:hover {
-  background: linear-gradient(135deg, rgba(76, 175, 80, 1), rgba(129, 199, 132, 1));
-  box-shadow:
-    0 6px 20px rgba(76, 175, 80, 0.4),
-    0 8px 25px rgba(129, 199, 132, 0.3),
-    inset 0 2px 3px rgba(255, 255, 255, 0.3);
-}
-
-.menu-button {
-  background: linear-gradient(135deg, rgba(138, 43, 226, 0.9), rgba(255, 119, 48, 0.9));
-}
-
-.menu-button:hover {
-  background: linear-gradient(135deg, rgba(138, 43, 226, 1), rgba(255, 119, 48, 1));
-  box-shadow:
-    0 6px 20px rgba(138, 43, 226, 0.4),
-    0 8px 25px rgba(255, 119, 48, 0.3),
-    inset 0 2px 3px rgba(255, 255, 255, 0.3);
-}
-
-.map-button {
-  background: linear-gradient(135deg, rgba(72, 219, 251, 0.9), rgba(0, 171, 227, 0.9));
-}
-
-.map-button:hover {
-  background: linear-gradient(135deg, rgba(72, 219, 251, 1), rgba(0, 171, 227, 1));
-  box-shadow:
-    0 6px 20px rgba(72, 219, 251, 0.4),
-    0 8px 25px rgba(0, 171, 227, 0.3),
-    inset 0 2px 3px rgba(255, 255, 255, 0.3);
-}
-
-/* Map Overlay Styles */
 .map-popup-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 0;
-  animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  inset: 0;
+  background: rgba(6, 10, 23, 0.8);
+  backdrop-filter: blur(14px);
+  display: grid;
+  place-items: center;
+  z-index: 40;
 }
 
 .map-popup {
-  background: transparent;
-  width: 100vw;
-  height: 100vh;
+  width: min(860px, 92vw);
+  max-height: 90vh;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  animation: fadeIn 0.3s ease-out;
+  gap: var(--space-4);
+  padding: var(--space-4);
 }
 
 .popup-header {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
-  background: transparent;
 }
 
 .popup-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: white;
   margin: 0;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-
-.popup-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  gap: 2rem;
-  overflow: hidden;
-  background: transparent;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
 }
 
 .popup-board-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: min(90vw, 800px);
-  height: 60vh;
   position: relative;
   overflow: hidden;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08));
-  backdrop-filter: blur(15px);
-  box-shadow:
-    0 8px 25px rgba(0, 0, 0, 0.15),
-    inset 0 0 20px rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  cursor: grab;
-}
-
-.popup-board-container:active {
-  cursor: grabbing;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+  min-height: 320px;
 }
 
 .popup-board {
   display: grid;
-  gap: 4px;
-  transform-origin: center center;
-  transition: none;
-  will-change: transform;
+  gap: 2px;
   position: absolute;
   top: 50%;
   left: 50%;
 }
 
-
 .popup-cell {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(245, 245, 255, 0.95));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  font-weight: bold;
-  color: #333;
-  border-radius: 8px;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(72, 219, 251, 0.2); /* Cooler border for cells */
-  transition: all 0.3s ease;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 6px;
 }
+
+.popup-x-two-in-row { background: linear-gradient(135deg, rgba(33, 150, 243, 0.12), rgba(33, 150, 243, 0.24)); }
+.popup-x-three-in-row { background: linear-gradient(135deg, rgba(33, 150, 243, 0.22), rgba(33, 150, 243, 0.38)); }
+.popup-o-two-in-row { background: linear-gradient(135deg, rgba(244, 67, 54, 0.12), rgba(244, 67, 54, 0.24)); }
+.popup-o-three-in-row { background: linear-gradient(135deg, rgba(244, 67, 54, 0.22), rgba(244, 67, 54, 0.38)); }
+.popup-square-two-in-row { background: linear-gradient(135deg, rgba(156, 39, 176, 0.12), rgba(156, 39, 176, 0.24)); }
+.popup-square-three-in-row { background: linear-gradient(135deg, rgba(156, 39, 176, 0.22), rgba(156, 39, 176, 0.38)); }
+.popup-star-two-in-row { background: linear-gradient(135deg, rgba(255, 152, 0, 0.12), rgba(255, 152, 0, 0.24)); }
+.popup-star-three-in-row { background: linear-gradient(135deg, rgba(255, 152, 0, 0.22), rgba(255, 152, 0, 0.38)); }
+.popup-triangle-two-in-row { background: linear-gradient(135deg, rgba(76, 175, 80, 0.12), rgba(76, 175, 80, 0.24)); }
+.popup-triangle-three-in-row { background: linear-gradient(135deg, rgba(76, 175, 80, 0.22), rgba(76, 175, 80, 0.38)); }
+.popup-diamond-two-in-row { background: linear-gradient(135deg, rgba(0, 188, 212, 0.12), rgba(0, 188, 212, 0.24)); }
+.popup-diamond-three-in-row { background: linear-gradient(135deg, rgba(0, 188, 212, 0.22), rgba(0, 188, 212, 0.38)); }
+.popup-circle-two-in-row { background: linear-gradient(135deg, rgba(255, 235, 59, 0.12), rgba(255, 235, 59, 0.24)); }
+.popup-circle-three-in-row { background: linear-gradient(135deg, rgba(255, 235, 59, 0.22), rgba(255, 235, 59, 0.38)); }
+.popup-plus-two-in-row { background: linear-gradient(135deg, rgba(233, 30, 99, 0.12), rgba(233, 30, 99, 0.24)); }
+.popup-plus-three-in-row { background: linear-gradient(135deg, rgba(233, 30, 99, 0.22), rgba(233, 30, 99, 0.38)); }
+.popup-heart-two-in-row { background: linear-gradient(135deg, rgba(255, 87, 34, 0.12), rgba(255, 87, 34, 0.24)); }
+.popup-heart-three-in-row { background: linear-gradient(135deg, rgba(255, 87, 34, 0.22), rgba(255, 87, 34, 0.38)); }
+.popup-pentagon-two-in-row { background: linear-gradient(135deg, rgba(121, 85, 72, 0.12), rgba(121, 85, 72, 0.24)); }
+.popup-pentagon-three-in-row { background: linear-gradient(135deg, rgba(121, 85, 72, 0.22), rgba(121, 85, 72, 0.38)); }
+
 
 .popup-winning-cell {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.9), rgba(255, 165, 0, 0.8)) !important;
-  border-color: #ffd700 !important;
-  box-shadow:
-    0 0 20px rgba(255, 215, 0, 0.6),
-    0 4px 12px rgba(255, 165, 0, 0.4) !important;
-  animation: winningGlow 2s ease-in-out infinite;
+  border-color: rgba(99, 102, 241, 0.6);
+  background: rgba(99, 102, 241, 0.2);
 }
-
-/* X Player Gradients (Red) */
-.popup-x-three-in-row {
-  background: linear-gradient(135deg, rgba(220, 53, 69, 0.95), rgba(176, 42, 55, 0.9)) !important;
-  border-color: rgba(220, 53, 69, 0.8) !important;
-  box-shadow:
-    0 0 25px rgba(220, 53, 69, 0.6),
-    0 5px 15px rgba(176, 42, 55, 0.5) !important;
-  animation: xThreatGlow 2s ease-in-out infinite;
-}
-
-.popup-x-two-in-row {
-  background: linear-gradient(135deg, rgba(255, 114, 127, 0.85), rgba(255, 86, 101, 0.75)) !important;
-  border-color: rgba(255, 114, 127, 0.7) !important;
-  box-shadow:
-    0 0 20px rgba(255, 114, 127, 0.5),
-    0 4px 12px rgba(255, 86, 101, 0.4) !important;
-  animation: xStrategicGlow 2.5s ease-in-out infinite;
-}
-
-/* O Player Gradients (Blue) */
-.popup-o-three-in-row {
-  background: linear-gradient(135deg, rgba(13, 110, 253, 0.95), rgba(10, 88, 202, 0.9)) !important;
-  border-color: rgba(13, 110, 253, 0.8) !important;
-  box-shadow:
-    0 0 25px rgba(13, 110, 253, 0.6),
-    0 5px 15px rgba(10, 88, 202, 0.5) !important;
-  animation: oThreatGlow 2s ease-in-out infinite;
-}
-
-.popup-o-two-in-row {
-  background: linear-gradient(135deg, rgba(108, 175, 254, 0.85), rgba(86, 156, 254, 0.75)) !important;
-  border-color: rgba(108, 175, 254, 0.7) !important;
-  box-shadow:
-    0 0 20px rgba(108, 175, 254, 0.5),
-    0 4px 12px rgba(86, 156, 254, 0.4) !important;
-  animation: oStrategicGlow 2.5s ease-in-out infinite;
-}
-
-/* Square Player Gradients (Green) */
-.popup-square-three-in-row {
-  background: linear-gradient(135deg, rgba(25, 135, 84, 0.95), rgba(20, 108, 67, 0.9)) !important;
-  border-color: rgba(25, 135, 84, 0.8) !important;
-  box-shadow:
-    0 0 25px rgba(25, 135, 84, 0.6),
-    0 5px 15px rgba(20, 108, 67, 0.5) !important;
-  animation: squareThreatGlow 2s ease-in-out infinite;
-}
-
-.popup-square-two-in-row {
-  background: linear-gradient(135deg, rgba(116, 198, 157, 0.85), rgba(93, 188, 141, 0.75)) !important;
-  border-color: rgba(116, 198, 157, 0.7) !important;
-  box-shadow:
-    0 0 20px rgba(116, 198, 157, 0.5),
-    0 4px 12px rgba(93, 188, 141, 0.4) !important;
-  animation: squareStrategicGlow 2.5s ease-in-out infinite;
-}
-
-/* Star Player Gradients (Purple) */
-.popup-star-three-in-row {
-  background: linear-gradient(135deg, rgba(111, 66, 193, 0.95), rgba(89, 53, 154, 0.9)) !important;
-  border-color: rgba(111, 66, 193, 0.8) !important;
-  box-shadow:
-    0 0 25px rgba(111, 66, 193, 0.6),
-    0 5px 15px rgba(89, 53, 154, 0.5) !important;
-  animation: starThreatGlow 2s ease-in-out infinite;
-}
-
-.popup-star-two-in-row {
-  background: linear-gradient(135deg, rgba(162, 129, 247, 0.85), rgba(141, 108, 241, 0.75)) !important;
-  border-color: rgba(162, 129, 247, 0.7) !important;
-  box-shadow:
-    0 0 20px rgba(162, 129, 247, 0.5),
-    0 4px 12px rgba(141, 108, 241, 0.4) !important;
-  animation: starStrategicGlow 2.5s ease-in-out infinite;
-}
-
-/* X Player Animations (Red) */
-@keyframes xThreatGlow {
-  0%, 100% {
-    box-shadow:
-      0 0 25px rgba(220, 53, 69, 0.6),
-      0 5px 15px rgba(176, 42, 55, 0.5);
-  }
-  50% {
-    box-shadow:
-      0 0 35px rgba(220, 53, 69, 0.8),
-      0 7px 20px rgba(176, 42, 55, 0.7);
-  }
-}
-
-@keyframes xStrategicGlow {
-  0%, 100% {
-    box-shadow:
-      0 0 20px rgba(255, 114, 127, 0.5),
-      0 4px 12px rgba(255, 86, 101, 0.4);
-  }
-  50% {
-    box-shadow:
-      0 0 30px rgba(255, 114, 127, 0.7),
-      0 6px 18px rgba(255, 86, 101, 0.6);
-  }
-}
-
-/* O Player Animations (Blue) */
-@keyframes oThreatGlow {
-  0%, 100% {
-    box-shadow:
-      0 0 25px rgba(13, 110, 253, 0.6),
-      0 5px 15px rgba(10, 88, 202, 0.5);
-  }
-  50% {
-    box-shadow:
-      0 0 35px rgba(13, 110, 253, 0.8),
-      0 7px 20px rgba(10, 88, 202, 0.7);
-  }
-}
-
-@keyframes oStrategicGlow {
-  0%, 100% {
-    box-shadow:
-      0 0 20px rgba(108, 175, 254, 0.5),
-      0 4px 12px rgba(86, 156, 254, 0.4);
-  }
-  50% {
-    box-shadow:
-      0 0 30px rgba(108, 175, 254, 0.7),
-      0 6px 18px rgba(86, 156, 254, 0.6);
-  }
-}
-
-/* Square Player Animations (Green) */
-@keyframes squareThreatGlow {
-  0%, 100% {
-    box-shadow:
-      0 0 25px rgba(25, 135, 84, 0.6),
-      0 5px 15px rgba(20, 108, 67, 0.5);
-  }
-  50% {
-    box-shadow:
-      0 0 35px rgba(25, 135, 84, 0.8),
-      0 7px 20px rgba(20, 108, 67, 0.7);
-  }
-}
-
-@keyframes squareStrategicGlow {
-  0%, 100% {
-    box-shadow:
-      0 0 20px rgba(116, 198, 157, 0.5),
-      0 4px 12px rgba(93, 188, 141, 0.4);
-  }
-  50% {
-    box-shadow:
-      0 0 30px rgba(116, 198, 157, 0.7),
-      0 6px 18px rgba(93, 188, 141, 0.6);
-  }
-}
-
-/* Star Player Animations (Purple) */
-@keyframes starThreatGlow {
-  0%, 100% {
-    box-shadow:
-      0 0 25px rgba(111, 66, 193, 0.6),
-      0 5px 15px rgba(89, 53, 154, 0.5);
-  }
-  50% {
-    box-shadow:
-      0 0 35px rgba(111, 66, 193, 0.8),
-      0 7px 20px rgba(89, 53, 154, 0.7);
-  }
-}
-
-@keyframes starStrategicGlow {
-  0%, 100% {
-    box-shadow:
-      0 0 20px rgba(162, 129, 247, 0.5),
-      0 4px 12px rgba(141, 108, 241, 0.4);
-  }
-  50% {
-    box-shadow:
-      0 0 30px rgba(162, 129, 247, 0.7),
-      0 6px 18px rgba(141, 108, 241, 0.6);
-  }
-}
-
-@keyframes winningGlow {
-  0%, 100% {
-    box-shadow:
-      0 0 20px rgba(255, 215, 0, 0.6),
-      0 4px 12px rgba(255, 165, 0, 0.4);
-  }
-  50% {
-    box-shadow:
-      0 0 30px rgba(255, 215, 0, 0.8),
-      0 6px 18px rgba(255, 165, 0, 0.6);
-  }
-}
-.popup-inner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-}
-
-
 
 .popup-controls {
-  display: flex-col;
-  align-items: center;
-  width: min(90vw, 800px);
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08));
-  backdrop-filter: blur(15px);
-  box-shadow:
-    0 8px 25px rgba(0, 0, 0, 0.15),
-    inset 0 0 20px rgba(255, 255, 255, 0.05),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  cursor: grab;
-  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 
+.popup-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .control-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-2);
 }
 
 .zoom-display {
-  font-size: 1rem;
-  font-weight: 700;
-  color: white;
-  padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
   min-width: 60px;
   text-align: center;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  font-weight: 600;
 }
 
 .popup-help {
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.9);
-  text-align: center;
-  flex: 1;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
 }
 
-/* Zoom button styling - inherits from action-button but with specific tweaks */
-.action-button.zoom-btn {
-  min-width: 60px;
-  padding: 0.6rem 1rem;
-}
-
-.action-button.zoom-btn .button-icon {
-  font-size: 1rem;
-}
-
-/* Active button state for toggle buttons */
-.action-button.active {
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.9), rgba(129, 199, 132, 0.9)) !important;
-  border-color: rgba(76, 175, 80, 0.8) !important;
-  box-shadow: 0 0 15px rgba(76, 175, 80, 0.4) !important;
-}
-
-.action-button.active:hover {
-  background: linear-gradient(135deg, rgba(76, 175, 80, 1), rgba(129, 199, 132, 1)) !important;
-  border-color: rgba(76, 175, 80, 1) !important;
-}
-
-/* Timer Display Styles */
-.timer-display {
-  margin-left: 0.75rem;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.timer-circle {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.timer-svg {
-  width: 48px;
-  height: 48px;
-  transform: rotate(-90deg);
+.ground-line {
   position: absolute;
-  top: 0;
-  left: 0;
+  height: 3px;
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: var(--radius-pill);
 }
 
-.timer-bg {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.2);
-  stroke-width: 3;
-}
-
-.timer-progress {
-  fill: none;
-  stroke: #4fc3f7;
-  stroke-width: 3;
-  stroke-linecap: round;
-  transition: stroke-dasharray 0.3s ease;
-  animation: timerPulse 2s ease-in-out infinite;
-}
-
-.timer-display.warning .timer-progress {
-  stroke: #ff4757;
-  animation: timerWarning 0.5s ease-in-out infinite;
-}
-
-.timer-text {
-  position: relative;
-  font-size: 1rem;
-  font-weight: 700;
-  color: #4fc3f7;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  z-index: 1;
-  transition: color 0.3s ease;
-}
-
-.timer-display.warning .timer-text {
-  color: #ff4757;
-  animation: textWarning 0.5s ease-in-out infinite;
-}
-
-@keyframes timerPulse {
-  0%, 100% {
-    opacity: 0.8;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes timerWarning {
-  0%, 100% {
-    stroke: #ff4757;
-    opacity: 0.8;
-  }
-  50% {
-    stroke: #ff6b6b;
-    opacity: 1;
-  }
-}
-
-@keyframes textWarning {
-  0%, 100% {
-    color: #ff4757;
-    transform: scale(1);
-  }
-  50% {
-    color: #ff6b6b;
-    transform: scale(1.1);
-  }
-}
-
-/* King of the Hill center area styling */
-.cell.center-area {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.15)) !important;
-  border: 2px solid rgba(255, 215, 0, 0.6) !important;
-  box-shadow:
-    0 0 20px rgba(255, 215, 0, 0.4),
-    0 4px 12px rgba(255, 165, 0, 0.3),
-    inset 0 0 15px rgba(255, 215, 0, 0.1) !important;
-  animation: centerAreaPulse 3s ease-in-out infinite;
-  position: relative;
-}
-
-.cell.center-area::before {
-  content: '👑';
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  font-size: 0.7rem;
-  opacity: 0.8;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-}
-
-.cell.center-area:hover {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.35), rgba(255, 165, 0, 0.25)) !important;
-  border-color: rgba(255, 215, 0, 0.8) !important;
-  transform: translateY(-2px) scale(1.05);
-  box-shadow:
-    0 0 30px rgba(255, 215, 0, 0.6),
-    0 6px 18px rgba(255, 165, 0, 0.4),
-    inset 0 0 20px rgba(255, 215, 0, 0.15) !important;
-}
-
-@keyframes centerAreaPulse {
-  0%, 100% {
-    border-color: rgba(255, 215, 0, 0.6);
-    box-shadow:
-      0 0 20px rgba(255, 215, 0, 0.4),
-      0 4px 12px rgba(255, 165, 0, 0.3),
-      inset 0 0 15px rgba(255, 215, 0, 0.1);
-  }
-  50% {
-    border-color: rgba(255, 215, 0, 0.8);
-    box-shadow:
-      0 0 30px rgba(255, 215, 0, 0.6),
-      0 6px 16px rgba(255, 165, 0, 0.4),
-      inset 0 0 20px rgba(255, 215, 0, 0.15);
-  }
-}
-
-/* Winning cell highlighting */
-.cell.winning-cell {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.9), rgba(255, 165, 0, 0.8)) !important;
-  border: 3px solid #ffd700 !important;
-  box-shadow:
-    0 0 25px rgba(255, 215, 0, 0.8),
-    0 6px 20px rgba(255, 165, 0, 0.6),
-    inset 0 0 20px rgba(255, 255, 255, 0.3) !important;
-  animation: winningCellGlow 2s ease-in-out infinite;
-  z-index: 10;
-  transform: scale(1.05) !important;
-}
-
-@keyframes winningCellGlow {
-  0%, 100% {
-    box-shadow:
-      0 0 25px rgba(255, 215, 0, 0.8),
-      0 6px 20px rgba(255, 165, 0, 0.6),
-      inset 0 0 20px rgba(255, 255, 255, 0.3);
-  }
-  50% {
-    box-shadow:
-      0 0 35px rgba(255, 215, 0, 1),
-      0 8px 25px rgba(255, 165, 0, 0.8),
-      inset 0 0 25px rgba(255, 255, 255, 0.4);
-  }
-}
-
-/* Falling piece animation for gravity mode */
 .falling-piece {
   position: absolute;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(245, 245, 255, 0.95));
-  border-radius: 10px;
-  box-shadow:
-    0 4px 15px rgba(0, 0, 0, 0.2),
-    0 8px 25px rgba(0, 0, 0, 0.1);
-  animation: fallDown 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-  pointer-events: none;
+  transition: transform 0.6s ease;
+  transform: translateY(var(--fall-distance));
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  z-index: 5;
 }
 
-@keyframes fallDown {
-  0% {
-    transform: translateY(0) scale(1);
-    box-shadow:
-      0 4px 15px rgba(0, 0, 0, 0.2),
-      0 8px 25px rgba(0, 0, 0, 0.1);
-  }
-  20% {
-    transform: translateY(calc(var(--fall-distance) * 0.3)) scale(1.02);
-    box-shadow:
-      0 6px 20px rgba(0, 0, 0, 0.25),
-      0 12px 30px rgba(0, 0, 0, 0.15);
+/* Chain Reaction Scores */
+.chain-scores {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.score-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface-elevated);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  transition: all var(--transition-base);
+}
+
+.score-chip.active {
+  border-color: rgba(255, 152, 0, 0.6);
+  background: rgba(255, 152, 0, 0.12);
+  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+}
+
+.score-symbol {
+  display: grid;
+  place-items: center;
+}
+
+.score-value {
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+  min-width: 2ch;
+  text-align: center;
+}
+
+/* Chain Animation */
+.cell.chain-spreading {
+  animation: chainPulse 0.5s ease;
+  border-color: rgba(255, 152, 0, 0.8);
+  background: rgba(255, 152, 0, 0.2);
+}
+
+@keyframes chainPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
   }
   50% {
-    transform: translateY(calc(var(--fall-distance) * 0.7)) scale(1.05);
-    box-shadow:
-      0 8px 25px rgba(0, 0, 0, 0.3),
-      0 16px 40px rgba(0, 0, 0, 0.2);
+    transform: scale(1.1);
+    opacity: 0.8;
   }
-  80% {
-    transform: translateY(calc(var(--fall-distance) * 0.95)) scale(1.08);
+}
+
+@keyframes playerChipPulse {
+  0%, 100% {
     box-shadow:
-      0 10px 30px rgba(0, 0, 0, 0.35),
-      0 20px 50px rgba(0, 0, 0, 0.25);
+      0 10px 22px rgba(0, 217, 255, 0.25),
+      0 0 24px rgba(0, 217, 255, 0.35);
   }
-  95% {
-    transform: translateY(var(--fall-distance)) scale(1.1);
+  50% {
     box-shadow:
-      0 12px 35px rgba(0, 0, 0, 0.4),
-      0 24px 60px rgba(0, 0, 0, 0.3);
+      0 12px 26px rgba(0, 217, 255, 0.32),
+      0 0 30px rgba(0, 217, 255, 0.42);
   }
-  100% {
-    transform: translateY(var(--fall-distance)) scale(1);
+}
+
+@media (max-width: 768px) {
+  .players-strip {
+    gap: var(--space-2);
+  }
+
+  .victory-badge-chip {
+    position: relative;
+    top: 0;
+    right: auto;
+    align-self: center;
+    margin-top: var(--space-1);
+  }
+
+  .board {
+    max-height: 55vh;
+  }
+
+  .game-info-overlay {
+    inset: var(--space-3);
+  }
+
+  .game-end-actions {
+    flex-direction: column;
+  }
+}
+
+/* Light Mode Overrides */
+@media (prefers-color-scheme: light) {
+  /* Empty cells - lighter background */
+  .cell {
+    background: rgba(248, 250, 252, 0.8);
+    border: 2px solid rgba(99, 102, 241, 0.25);
+  }
+
+  .cell:hover:not(.cell-filled):not(.disabled) {
+    border-color: rgba(99, 102, 241, 0.6);
+    background: rgba(219, 234, 254, 0.6);
     box-shadow:
-      0 4px 15px rgba(0, 0, 0, 0.2),
-      0 8px 25px rgba(0, 0, 0, 0.1);
+      0 0 15px rgba(99, 102, 241, 0.2),
+      inset 0 0 15px rgba(99, 102, 241, 0.08);
+  }
+
+  /* Not-playable cells - Shaded Overlay (light mode) */
+  .cell.not-playable {
+    background: rgba(241, 245, 249, 0.8);
+    opacity: 0.7;
+    border-color: rgba(148, 163, 184, 0.3);
+  }
+
+  /* Not-playable cells - Patterned Background (light mode) */
+  .cell.not-playable-patterned {
+    background:
+      repeating-linear-gradient(
+        45deg,
+        rgba(226, 232, 240, 0.6),
+        rgba(226, 232, 240, 0.6) 4px,
+        rgba(203, 213, 225, 0.7) 4px,
+        rgba(203, 213, 225, 0.7) 8px
+      ),
+      rgba(241, 245, 249, 0.8);
+    border-color: rgba(148, 163, 184, 0.3);
+  }
+
+  .cell.not-playable:hover,
+  .cell.not-playable-patterned:hover {
+    border-color: rgba(148, 163, 184, 0.3);
+  }
+
+  /* Not-playable indicator background */
+  .not-playable-indicator {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  /* Board background */
+  .board {
+    background: var(--color-bg);
+    border: 2px solid rgba(99, 102, 241, 0.4);
+    box-shadow:
+      inset 0 0 20px rgba(99, 102, 241, 0.05),
+      0 0 20px rgba(99, 102, 241, 0.15),
+      0 0 40px rgba(99, 102, 241, 0.1);
+  }
+
+  /* Game overlay */
+  .game-info-overlay {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+  }
+
+  .victory-text,
+  .draw-text {
+    color: #1e293b;
+  }
+
+  /* Popup board */
+  .popup-cell {
+    background: rgba(248, 250, 252, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  /* Popup container */
+  .popup-board-container {
+    background: rgba(241, 245, 249, 0.8);
+  }
+
+  .map-popup-overlay {
+    background: rgba(241, 245, 249, 0.85);
   }
 }
 </style>

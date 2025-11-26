@@ -2,13 +2,13 @@
   <svg
     :width="size"
     :height="size"
-    viewBox="0 0 40 40"
+    viewBox="0 0 24 24"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     :class="{ 'icon-glow': glow }"
   >
     <defs>
-      <filter id="glow-square" x="-50%" y="-50%" width="200%" height="200%">
+      <filter id="glow-triangle" x="-50%" y="-50%" width="200%" height="200%">
         <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
         <feMerge>
           <feMergeNode in="coloredBlur"/>
@@ -17,15 +17,13 @@
         </feMerge>
       </filter>
     </defs>
-    <rect
-      x="10"
-      y="10"
-      width="20"
-      height="20"
+    <path
+      d="M12 4L21 20H3L12 4Z"
       :stroke="color"
       :stroke-width="strokeWidth"
-      fill="none"
-      :filter="glow ? 'url(#glow-square)' : undefined"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      :filter="glow ? 'url(#glow-triangle)' : undefined"
     />
   </svg>
 </template>
@@ -39,8 +37,8 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  size: 40,
-  color: '#A855F7',
+  size: 24,
+  color: '#00FF9F',
   strokeWidth: 2,
   glow: true
 })
