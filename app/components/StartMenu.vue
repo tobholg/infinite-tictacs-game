@@ -89,9 +89,36 @@
         <section class="config-section effects-settings" v-if="showVisualSettings">
           <div class="section-header">
             <h3 class="section-title">Visual Settings</h3>
-            <p class="section-description">Configure how blocked cells appear on the board</p>
+            <p class="section-description">Customize the look and feel of your game</p>
           </div>
 
+          <!-- Theme Selector -->
+          <div class="theme-selector">
+            <h4 class="subsection-label">Theme</h4>
+            <div class="theme-options">
+              <label class="theme-option" :class="{ active: themePreference === 'auto' }">
+                <input type="radio" name="theme" value="auto" :checked="themePreference === 'auto'" @change="setPreference('auto')" />
+                <span class="theme-icon">🎄</span>
+                <span class="theme-label">Auto</span>
+                <span class="theme-hint">{{ isDecember ? 'Christmas active' : 'Default active' }}</span>
+              </label>
+              <label class="theme-option" :class="{ active: themePreference === 'christmas' }">
+                <input type="radio" name="theme" value="christmas" :checked="themePreference === 'christmas'" @change="setPreference('christmas')" />
+                <span class="theme-icon">❄️</span>
+                <span class="theme-label">Christmas</span>
+                <span class="theme-hint">Always festive</span>
+              </label>
+              <label class="theme-option" :class="{ active: themePreference === 'default' }">
+                <input type="radio" name="theme" value="default" :checked="themePreference === 'default'" @change="setPreference('default')" />
+                <span class="theme-icon">🌙</span>
+                <span class="theme-label">Default</span>
+                <span class="theme-hint">Classic neon</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Blocked Cells Settings -->
+          <h4 class="subsection-label">Blocked Cells Appearance</h4>
           <div class="effects-grid">
             <label class="effect-card" :class="{ active: cantPlaceEffects.dimmedCells }">
               <input type="checkbox" v-model="cantPlaceEffects.dimmedCells" />
@@ -151,6 +178,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import CharacterPicker from './CharacterPicker.vue'
+import { useTheme, type ThemePreference } from '~/composables/useTheme'
 
 interface GamePreset {
   id: string
@@ -204,6 +232,9 @@ const cantPlaceEffects = ref<CantPlaceEffects>({
 
 // Visual settings panel visibility
 const showVisualSettings = ref(false)
+
+// Theme settings
+const { themePreference, setPreference, isDecember } = useTheme()
 
 // Game presets - Only Classic and Speed Classic (5 sec)
 const gamePresets: GamePreset[] = [
@@ -970,6 +1001,76 @@ onMounted(() => {
 .effects-settings {
   background: var(--color-surface-elevated);
   border: 2px solid rgba(168, 85, 247, 0.3);
+}
+
+/* Theme Selector */
+.theme-selector {
+  margin-bottom: var(--space-4);
+}
+
+.subsection-label {
+  margin: 0 0 var(--space-2) 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--color-bg-muted);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  text-align: center;
+}
+
+.theme-option input {
+  display: none;
+}
+
+.theme-option:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+}
+
+.theme-option.active {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.theme-icon {
+  font-size: 1.75rem;
+}
+
+.theme-label {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.theme-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+@media (max-width: 600px) {
+  .theme-options {
+    grid-template-columns: 1fr;
+  }
 }
 
 .effects-grid {

@@ -588,3 +588,128 @@ button:disabled {
     scroll-behavior: auto !important;
   }
 }
+
+/* ================================
+   CHRISTMAS THEME
+   ================================ */
+
+:root[data-theme="christmas"] {
+  /* Primary colors - Christmas red */
+  --color-accent: #c41e3a;
+  --color-accent-soft: rgba(196, 30, 58, 0.15);
+  --color-accent-strong: #a01830;
+  --color-accent-glow: rgba(196, 30, 58, 0.5);
+
+  /* Secondary - Christmas green */
+  --color-secondary: #2d5a27;
+  --color-secondary-soft: rgba(45, 90, 39, 0.15);
+  --color-secondary-glow: rgba(45, 90, 39, 0.5);
+
+  /* Accent gold */
+  --color-warning: #d4af37;
+  --color-warning-soft: rgba(212, 175, 55, 0.15);
+
+  /* Background - Deep red/green Christmas colors */
+  --color-bg: #120810;
+  --color-bg-muted: #1E0F15;
+  --color-surface: #2A1518;
+  --color-surface-elevated: #351A1E;
+  --color-surface-highlight: #402025;
+  --color-border: #4a2828;
+  --color-border-glow: rgba(196, 30, 58, 0.5);
+  --color-divider: #2D1A1D;
+
+  /* Neon glow overrides - festive colors */
+  --neon-cyan: #ff6b6b;
+  --neon-cyan-bright: #ff8585;
+  --neon-purple: #4ecdc4;
+  --neon-purple-bright: #6ee0d8;
+  --neon-pink: #ffe66d;
+  --neon-pink-bright: #ffed8a;
+  --neon-green: #98d89e;
+  --neon-green-bright: #b0e8b5;
+  --neon-orange: #ff9f43;
+  --neon-orange-bright: #ffb366;
+
+  /* Symbol-Specific Glows - festive versions */
+  --glow-x: 0 0 15px #ff6b6b, 0 0 30px #ff6b6b, 0 0 45px rgba(255, 107, 107, 0.5);
+  --glow-o: 0 0 15px #4ecdc4, 0 0 30px #4ecdc4, 0 0 45px rgba(78, 205, 196, 0.5);
+  --glow-square: 0 0 15px #ffe66d, 0 0 30px #ffe66d, 0 0 45px rgba(255, 230, 109, 0.5);
+  --glow-star: 0 0 15px #ff9f43, 0 0 30px #ff9f43, 0 0 45px rgba(255, 159, 67, 0.5);
+  --glow-triangle: 0 0 15px #98d89e, 0 0 30px #98d89e, 0 0 45px rgba(152, 216, 158, 0.5);
+  --glow-diamond: 0 0 15px #c41e3a, 0 0 30px #c41e3a, 0 0 45px rgba(196, 30, 58, 0.5);
+
+  /* Ambient gradient for festive mood */
+  --christmas-ambient-gradient: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(196, 30, 58, 0.15) 0%,
+    transparent 50%
+  ), radial-gradient(
+    ellipse at 100% 100%,
+    rgba(45, 90, 39, 0.12) 0%,
+    transparent 40%
+  ), radial-gradient(
+    ellipse at 0% 100%,
+    rgba(45, 90, 39, 0.10) 0%,
+    transparent 40%
+  );
+}
+
+/* Christmas theme body background override */
+:root[data-theme="christmas"] body {
+  background:
+    var(--christmas-ambient-gradient),
+    radial-gradient(ellipse at 20% 80%, rgba(196, 30, 58, 0.18), transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(45, 90, 39, 0.15), transparent 50%),
+    radial-gradient(ellipse at 0% 50%, rgba(45, 90, 39, 0.12), transparent 40%),
+    radial-gradient(ellipse at 100% 50%, rgba(196, 30, 58, 0.12), transparent 40%),
+    radial-gradient(ellipse at 50% 50%, rgba(212, 175, 55, 0.08), transparent 60%),
+    var(--color-bg);
+}
+
+/* Christmas theme grid overlay */
+:root[data-theme="christmas"] body::before {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 100px,
+      rgba(196, 30, 58, 0.02) 100px,
+      rgba(196, 30, 58, 0.02) 101px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 100px,
+      rgba(45, 90, 39, 0.02) 100px,
+      rgba(45, 90, 39, 0.02) 101px
+    );
+}
+
+/* Christmas heading glow */
+:root[data-theme="christmas"] .heading-display {
+  text-shadow:
+    0 0 10px #c41e3a,
+    0 0 20px #c41e3a,
+    0 0 30px #c41e3a,
+    0 0 40px rgba(196, 30, 58, 0.5);
+}
+
+/* Christmas primary button */
+:root[data-theme="christmas"] .btn-primary {
+  background: linear-gradient(135deg, #c41e3a, #2d5a27);
+  border-color: #c41e3a;
+  box-shadow:
+    var(--shadow-md),
+    0 0 20px rgba(196, 30, 58, 0.4),
+    0 0 40px rgba(196, 30, 58, 0.2);
+}
+
+:root[data-theme="christmas"] .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e63946, #3d7a37);
+  border-color: #e63946;
+  box-shadow:
+    var(--shadow-lg),
+    0 0 30px rgba(196, 30, 58, 0.6),
+    0 0 60px rgba(45, 90, 39, 0.4);
+}

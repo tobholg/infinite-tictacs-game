@@ -1,5 +1,8 @@
 <template>
   <div class="experience-shell" :class="{ 'game-active': gameStarted }">
+    <!-- Pre-render holiday background (hidden until game starts) -->
+    <HolidayBackground :is-visible="gameStarted" />
+
     <div class="experience-content">
       <header class="experience-header">
         <h1 class="experience-title heading-display">Infinite Tic-Tacs</h1>
@@ -9,42 +12,61 @@
         </p>
       </header>
 
-      <transition name="fade-scale" mode="out-in">
-        <div v-if="!gameStarted" key="menu" class="experience-body">
-          <StartMenu @start-game="handleStartGame" />
+      <!-- Start Menu -->
+      <Motion
+        v-if="!gameStarted"
+        tag="div"
+        class="experience-body"
+        :initial="{ opacity: 0, y: 20, scale: 0.95 }"
+        :animate="{ opacity: 1, y: 0, scale: 1 }"
+        :exit="{ opacity: 0, y: -20, scale: 0.95 }"
+        :transition="{ duration: 0.4, easing: 'ease-out' }"
+      >
+        <StartMenu @start-game="handleStartGame" />
+      </Motion>
+
+      <!-- Game Board -->
+      <Motion
+        v-else
+        tag="div"
+        class="game-layout"
+        :initial="{ opacity: 0, y: 30, scale: 0.95 }"
+        :animate="{ opacity: 1, y: 0, scale: 1 }"
+        :exit="{ opacity: 0, y: -20, scale: 0.95 }"
+        :transition="{ duration: 0.5, easing: 'ease-out' }"
+      >
+        <div class="experience-body board-body">
+          <GameBoard
+            ref="gameBoardRef"
+            :players="activePlayers"
+            :game-mode="gameMode"
+            :rules="gameRules"
+            :time-limit="timeLimit"
+            :cant-place-effects="cantPlaceEffects"
+            @back-to-menu="handleBackToMenu"
+          />
         </div>
-        <div v-else key="board" class="game-layout">
-          <div class="experience-body board-body">
-            <GameBoard
-              ref="gameBoardRef"
-              :players="activePlayers"
-              :game-mode="gameMode"
-              :rules="gameRules"
-              :time-limit="timeLimit"
-              :cant-place-effects="cantPlaceEffects"
-              @back-to-menu="handleBackToMenu"
-            />
-          </div>
-          <div class="session-actions">
-            <button class="btn btn-secondary" @click="handleRestart">
-              <RefreshIcon class="action-icon" />
-              <span>Restart</span>
-            </button>
-            <button class="btn btn-ghost" @click="handleBackToMenu">
-              <ExitIcon class="action-icon" />
-              <span>Menu</span>
-            </button>
-          </div>
+        <div class="session-actions">
+          <button class="btn btn-secondary" @click="handleRestart">
+            <RefreshIcon class="action-icon" />
+            <span>Restart</span>
+          </button>
+          <button class="btn btn-ghost" @click="handleBackToMenu">
+            <ExitIcon class="action-icon" />
+            <span>Menu</span>
+          </button>
         </div>
-      </transition>
+      </Motion>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { Motion } from '@motionone/vue'
 import StartMenu from './StartMenu.vue'
 import GameBoard from './GameBoard.vue'
+import HolidayBackground from './HolidayBackground.vue'
 import type { Player, GameSettings, CantPlaceEffects } from './StartMenu.vue'
 import RefreshIcon from './icons/RefreshIcon.vue'
 import ExitIcon from './icons/ExitIcon.vue'
@@ -203,17 +225,6 @@ const handleRestart = () => {
 .action-icon {
   width: 18px;
   height: 18px;
-}
-
-.fade-scale-enter-active,
-.fade-scale-leave-active {
-  transition: all 200ms var(--transition-base);
-}
-
-.fade-scale-enter-from,
-.fade-scale-leave-to {
-  opacity: 0;
-  transform: translateY(12px) scale(0.98);
 }
 
 @media (max-width: 720px) {

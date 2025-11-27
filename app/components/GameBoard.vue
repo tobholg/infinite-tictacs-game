@@ -141,7 +141,7 @@
               :class="{
                 'hex-cell': true,
                 'disabled': (cell !== '' || winner || isDraw) && props.cantPlaceEffects.dimmedCells,
-                'disabled-patterned': (cell !== '' || winner || isDraw) && props.cantPlaceEffects.stripedPattern,
+                'disabled-patterned': cell === '' && (winner || isDraw) && props.cantPlaceEffects.stripedPattern,
                 'edge': isEdgeCell(rowIndex, colIndex) && cell === '' && isAdjacentToFilledCell(rowIndex, colIndex),
                 'not-playable': cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw && props.cantPlaceEffects.dimmedCells,
                 'not-playable-patterned': cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw && props.cantPlaceEffects.stripedPattern,
@@ -191,7 +191,7 @@
               @click="makeMove(rowIndex, colIndex)"
               :class="{
                 'disabled': (cell !== '' || winner || isDraw) && props.cantPlaceEffects.dimmedCells,
-                'disabled-patterned': (cell !== '' || winner || isDraw) && props.cantPlaceEffects.stripedPattern,
+                'disabled-patterned': cell === '' && (winner || isDraw) && props.cantPlaceEffects.stripedPattern,
                 'not-playable': cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw && props.cantPlaceEffects.dimmedCells,
                 'not-playable-patterned': cell === '' && !isAdjacentToFilledCell(rowIndex, colIndex) && !winner && !isDraw && props.cantPlaceEffects.stripedPattern,
                 'edge': isEdgeCell(rowIndex, colIndex) && cell === '' && isAdjacentToFilledCell(rowIndex, colIndex),
@@ -1408,6 +1408,9 @@ defineExpose({
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
+  overflow: visible; /* allow chip glows to render outside wrapper */
+  position: relative;
+  z-index: 1; /* keep content above global background */
 }
 
 .players-strip-wrapper {
@@ -1417,7 +1420,8 @@ defineExpose({
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-2);
+  padding: calc(var(--space-3) + 14px) var(--space-2); /* extra vertical space so chip glows aren't clipped */
+  overflow: visible; /* allow active-chip glow to render above without clipping */
 }
 
 .players-strip {
@@ -1426,11 +1430,13 @@ defineExpose({
   gap: var(--space-3);
   overflow-x: auto;
   overflow-y: visible;
-  padding: var(--space-2) var(--chip-glow-space);
+  padding: calc(var(--space-2) + 14px) var(--chip-glow-space) calc(var(--space-2) + 14px) var(--chip-glow-space); /* more top/bottom room for glow */
   width: 100%;
   justify-content: center;
   scroll-padding-inline: var(--chip-glow-space);
   scrollbar-gutter: stable both-edges;
+  overflow: visible; /* ensure glow not clipped inside strip */
+  z-index: 1;
 }
 
 .players-strip::before,
@@ -1675,11 +1681,11 @@ defineExpose({
   background: var(--color-bg);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
-  border: 2px solid var(--neon-cyan);
+  border: none; /* borderless look */
   box-shadow:
-    inset 0 0 20px rgba(0, 217, 255, 0.1),
-    0 0 20px rgba(0, 217, 255, 0.3),
-    0 0 40px rgba(0, 217, 255, 0.2);
+    inset 0 0 18px rgba(0, 217, 255, 0.12),
+    0 0 26px rgba(0, 217, 255, 0.26),
+    0 0 46px rgba(0, 217, 255, 0.2);
   overflow: auto;
   max-height: 70vh;
   position: relative;
@@ -1797,10 +1803,11 @@ defineExpose({
     repeating-linear-gradient(
       45deg,
       transparent,
-      transparent 4px,
-      rgba(100, 100, 120, 0.15) 4px,
-      rgba(100, 100, 120, 0.15) 8px
-    );
+      transparent 5px,
+      rgba(255, 255, 255, 0.12) 5px,
+      rgba(255, 255, 255, 0.12) 10px
+    ),
+    rgba(10, 15, 30, 0.5);
 }
 
 /* Not-playable cell styles - Shaded Overlay option */
@@ -1818,14 +1825,14 @@ defineExpose({
   background:
     repeating-linear-gradient(
       45deg,
-      rgba(15, 20, 35, 0.4),
-      rgba(15, 20, 35, 0.4) 4px,
-      rgba(20, 25, 40, 0.5) 4px,
-      rgba(20, 25, 40, 0.5) 8px
+      rgba(0, 0, 0, 0.3),
+      rgba(0, 0, 0, 0.3) 5px,
+      rgba(255, 255, 255, 0.08) 5px,
+      rgba(255, 255, 255, 0.08) 10px
     ),
-    rgba(10, 15, 30, 0.45);
+    rgba(10, 15, 30, 0.6);
   cursor: not-allowed;
-  border-color: rgba(71, 85, 105, 0.25);
+  border-color: rgba(71, 85, 105, 0.35);
   pointer-events: none;
 }
 
@@ -2239,13 +2246,13 @@ defineExpose({
     background:
       repeating-linear-gradient(
         45deg,
-        rgba(226, 232, 240, 0.6),
-        rgba(226, 232, 240, 0.6) 4px,
-        rgba(203, 213, 225, 0.7) 4px,
-        rgba(203, 213, 225, 0.7) 8px
+        rgba(100, 116, 139, 0.25),
+        rgba(100, 116, 139, 0.25) 5px,
+        rgba(148, 163, 184, 0.15) 5px,
+        rgba(148, 163, 184, 0.15) 10px
       ),
-      rgba(241, 245, 249, 0.8);
-    border-color: rgba(148, 163, 184, 0.3);
+      rgba(226, 232, 240, 0.7);
+    border-color: rgba(148, 163, 184, 0.4);
   }
 
   .cell.not-playable:hover,
