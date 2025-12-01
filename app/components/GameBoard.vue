@@ -149,10 +149,15 @@
                 'winning-cell': isWinningCell(rowIndex, colIndex),
                 'cell-filled': cell !== '',
                 'cell-just-placed': isLastPlacedCell(rowIndex, colIndex),
-                ['cell-' + cell.toLowerCase()]: cell !== ''
+                ['cell-' + cell.toLowerCase()]: cell !== '',
+                'new-edge-top': isNewEdgeCell(rowIndex, colIndex).direction === 'top',
+                'new-edge-bottom': isNewEdgeCell(rowIndex, colIndex).direction === 'bottom',
+                'new-edge-left': isNewEdgeCell(rowIndex, colIndex).direction === 'left',
+                'new-edge-right': isNewEdgeCell(rowIndex, colIndex).direction === 'right'
               }"
               :data-symbol="cell ? cell.toLowerCase() : undefined"
-              :initial="{ opacity: 0, scale: 0.85 }"
+              :style="{ animationDelay: getNewEdgeCellDelay(rowIndex, colIndex) }"
+              :initial="{ opacity: 1, scale: 1 }"
               :animate="getCellMotionState(rowIndex, colIndex, cell)"
               :transition="getCellMotionTransition(rowIndex, colIndex)"
             >
@@ -199,10 +204,15 @@
                 'winning-cell': isWinningCell(rowIndex, colIndex),
                 'cell-filled': cell !== '',
                 'cell-just-placed': isLastPlacedCell(rowIndex, colIndex),
-                ['cell-' + cell.toLowerCase()]: cell !== ''
+                ['cell-' + cell.toLowerCase()]: cell !== '',
+                'new-edge-top': isNewEdgeCell(rowIndex, colIndex).direction === 'top',
+                'new-edge-bottom': isNewEdgeCell(rowIndex, colIndex).direction === 'bottom',
+                'new-edge-left': isNewEdgeCell(rowIndex, colIndex).direction === 'left',
+                'new-edge-right': isNewEdgeCell(rowIndex, colIndex).direction === 'right'
               }"
               :data-symbol="cell ? cell.toLowerCase() : undefined"
-              :initial="{ opacity: 0, scale: 0.85 }"
+              :style="{ animationDelay: getNewEdgeCellDelay(rowIndex, colIndex) }"
+              :initial="{ opacity: 1, scale: 1 }"
               :animate="getCellMotionState(rowIndex, colIndex, cell)"
               :transition="getCellMotionTransition(rowIndex, colIndex)"
             >
@@ -357,19 +367,6 @@ import HeartIcon from './icons/HeartIcon.vue'
 import PentagonIcon from './icons/PentagonIcon.vue'
 import type { Player, PlayerSymbol } from './StartMenu.vue'
 
-interface ChainReactionConfig {
-  baseEnergy: number
-  energyBonusDivider: number
-  maxCellsPerChain: number
-  conversionBonus: number
-  minClusterSizeToTrigger: number
-  adjacencyType: 'orthogonal' | 'diagonal' | 'both'
-  conversionPolicy: 'territorial' | 'balanced' | 'aggressive'
-  winCondition: 'score' | 'superchain' | 'territory'
-  superChainThreshold?: number
-  turnLimit?: number
-}
-
 interface CantPlaceEffects {
   dimmedCells: boolean
   stripedPattern: boolean
@@ -478,7 +475,11 @@ const moveCounter = ref(0)
 const recencyHighlightCell = ref<{ row: number; col: number; symbol: PlayerSymbol } | null>(null)
 
 const lastPlacedCell = ref<{ row: number; col: number } | null>(null) // Track last placed cell for animation
-const isExpanding = ref(false) // Prevent animation during board expansion
+
+// Track which edges were just expanded for entrance animation
+const newExpandedEdges = ref<{ top: boolean; bottom: boolean; left: boolean; right: boolean }>({
+  top: false, bottom: false, left: false, right: false
+})
 
 // Maximum moves to track in history: 2 per player
 const maxHistorySize = computed(() => props.players.length * 2)
@@ -563,10 +564,6 @@ const cellSize = computed(() => {
 
   return calculatedSize
 })
-
-const hexRowGap = computed(() => Math.max(6, Math.round(cellSize.value * 0.2)))
-const hexColumnGap = computed(() => Math.max(6, Math.round(cellSize.value * 0.18)))
-const hexRowOffset = computed(() => Math.round(cellSize.value * 0.5))
 
 const boardStyle = computed(() => {
   return {
@@ -667,32 +664,6 @@ const isEdgeCell = (row: number, col: number): boolean => {
   return row === 0 || row === boardSize.value.rows - 1 || col === 0 || col === boardSize.value.cols - 1
 }
 
-const playerHasValidMoves = (playerIndex: number): boolean => {
-  // Check if a player has any valid moves available
-  const player = props.players[playerIndex]
-  if (!player) return false
-
-  // Check if there are any empty cells adjacent to filled cells
-  // or if the board is empty (first move)
-  const hasAnyFilledCells = board.value.some(row => row.some(cell => cell !== ''))
-
-  if (!hasAnyFilledCells) {
-    // First move - always has valid moves
-    return true
-  }
-
-  // Check for any empty cell adjacent to a filled cell
-  for (let row = 0; row < boardSize.value.rows; row++) {
-    for (let col = 0; col < boardSize.value.cols; col++) {
-      if (board.value[row]?.[col] === '' && isAdjacentToFilledCell(row, col)) {
-        return true
-      }
-    }
-  }
-
-  return false
-}
-
 const isCenterAreaCell = (row: number, col: number): boolean => {
   return centerAreaCellSet.value.has(`${row}-${col}`)
 }
@@ -703,6 +674,31 @@ const isWinningCell = (row: number, col: number): boolean => {
 
 const isLastPlacedCell = (row: number, col: number): boolean => {
   return lastPlacedCell.value?.row === row && lastPlacedCell.value?.col === col
+}
+
+// Check if cell is on a newly expanded edge
+const isNewEdgeCell = (row: number, col: number): { isNew: boolean; direction: 'top' | 'bottom' | 'left' | 'right' | null } => {
+  const edges = newExpandedEdges.value
+  if (edges.top && row === 0) return { isNew: true, direction: 'top' }
+  if (edges.bottom && row === boardSize.value.rows - 1) return { isNew: true, direction: 'bottom' }
+  if (edges.left && col === 0) return { isNew: true, direction: 'left' }
+  if (edges.right && col === boardSize.value.cols - 1) return { isNew: true, direction: 'right' }
+  return { isNew: false, direction: null }
+}
+
+// Get stagger delay for new edge cells (CSS animation-delay)
+const getNewEdgeCellDelay = (row: number, col: number): string | undefined => {
+  const edgeInfo = isNewEdgeCell(row, col)
+  if (!edgeInfo.isNew || !edgeInfo.direction) return undefined
+
+  let staggerIndex = 0
+  if (edgeInfo.direction === 'top' || edgeInfo.direction === 'bottom') {
+    staggerIndex = col
+  } else {
+    staggerIndex = row
+  }
+
+  return `${staggerIndex * 0.04}s`
 }
 
 const livelySpringEasing = 'cubic-bezier(0.22, 1, 0.36, 1)'
@@ -800,14 +796,19 @@ const getCellMotionTransition = (row: number, col: number) => {
 }
 
 const expandBoard = (row: number, col: number) => {
-  // Set expanding flag to prevent animation on existing cells
-  isExpanding.value = true
-
   const newBoard = [...board.value]
   const expandTop = row === 0
   const expandBottom = row === boardSize.value.rows - 1
   const expandLeft = col === 0
   const expandRight = col === boardSize.value.cols - 1
+
+  // Track which edges are being expanded for entrance animation
+  newExpandedEdges.value = {
+    top: expandTop,
+    bottom: expandBottom,
+    left: expandLeft,
+    right: expandRight
+  }
 
   if (expandTop) {
     newBoard.unshift(Array(boardSize.value.cols).fill(''))
@@ -846,6 +847,11 @@ const expandBoard = (row: number, col: number) => {
   }
 
   board.value = newBoard
+
+  // Clear expanded edges after animation completes
+  setTimeout(() => {
+    newExpandedEdges.value = { top: false, bottom: false, left: false, right: false }
+  }, 600)
 }
 
 const checkWinner = () => {
@@ -963,28 +969,37 @@ const makeMove = async (row: number, col: number) => {
   const expandRight = col === boardSize.value.cols - 1
   const needsExpansion = expandTop || expandBottom || expandLeft || expandRight
 
+  // Place immediately at the clicked coordinates (pre-expansion)
+  const currentRow = board.value[row]
+  if (!currentRow) return
+  currentRow[col] = props.players[currentPlayerIndex.value]?.symbol || ''
+
+  // Track this cell for animation (pre-expansion coords)
+  lastPlacedCell.value = { row, col }
+  recencyHighlightCell.value = {
+    row,
+    col,
+    symbol: props.players[currentPlayerIndex.value]?.symbol || 'X'
+  }
+
   if (needsExpansion) {
     expandBoard(row, col)
     await nextTick()
-    // Expansion is complete before placement so animations can play normally
-    isExpanding.value = false
+
+    // Shift tracked coordinates to match the new indices after prepends
+    if (expandTop) {
+      if (lastPlacedCell.value) lastPlacedCell.value.row++
+      if (recencyHighlightCell.value) recencyHighlightCell.value.row++
+    }
+    if (expandLeft) {
+      if (lastPlacedCell.value) lastPlacedCell.value.col++
+      if (recencyHighlightCell.value) recencyHighlightCell.value.col++
+    }
   }
 
-  // Adjust target coordinates if we prepended a row/column
-  let targetRow = row + (expandTop ? 1 : 0)
-  let targetCol = col + (expandLeft ? 1 : 0)
-
-  const currentRow = board.value[targetRow]
-  if (!currentRow) return
-  currentRow[targetCol] = props.players[currentPlayerIndex.value]?.symbol || ''
-
-  // Track this cell for animation
-  lastPlacedCell.value = { row: targetRow, col: targetCol }
-  recencyHighlightCell.value = {
-    row: targetRow,
-    col: targetCol,
-    symbol: props.players[currentPlayerIndex.value]?.symbol || 'X'
-  }
+  // Final target coordinates for this move (post-expansion)
+  const targetRow = lastPlacedCell.value?.row ?? row
+  const targetCol = lastPlacedCell.value?.col ?? col
   // Clear after animation completes
   setTimeout(() => {
     lastPlacedCell.value = null
@@ -1008,10 +1023,6 @@ const makeMove = async (row: number, col: number) => {
         behavior: 'smooth'
       })
     }
-
-    // Reset expanding flag after all DOM updates complete
-    await nextTick()
-    isExpanding.value = false
   }
 
   // Track move in history for recency heatmap
@@ -2190,6 +2201,100 @@ defineExpose({
       0 12px 26px rgba(0, 217, 255, 0.32),
       0 0 30px rgba(0, 217, 255, 0.42);
   }
+}
+
+/* Cell appear animation for just-placed cells */
+@keyframes cellAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) rotate(-10deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15) rotate(3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* New edge cell entrance animations */
+@keyframes slideFromTop {
+  0% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.7) rotate(-8deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(5px) scale(1.05) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes slideFromBottom {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.7) rotate(8deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1.05) rotate(-2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes slideFromLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-40px) scale(0.7) rotate(-8deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(5px) scale(1.05) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes slideFromRight {
+  0% {
+    opacity: 0;
+    transform: translateX(40px) scale(0.7) rotate(8deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(-5px) scale(1.05) rotate(-2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotate(0deg);
+  }
+}
+
+/* New edge cell styles with staggered animation */
+.new-edge-top {
+  animation: slideFromTop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.new-edge-bottom {
+  animation: slideFromBottom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.new-edge-left {
+  animation: slideFromLeft 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.new-edge-right {
+  animation: slideFromRight 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 @media (max-width: 768px) {
