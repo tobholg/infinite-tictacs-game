@@ -366,6 +366,8 @@ import PlusIcon from './icons/PlusIcon.vue'
 import HeartIcon from './icons/HeartIcon.vue'
 import PentagonIcon from './icons/PentagonIcon.vue'
 import type { Player, PlayerSymbol } from './StartMenu.vue'
+import { useQLearning, type AIDifficulty, PLAYER_SYMBOLS } from '~/composables/useQLearning'
+type QBoard = ('' | typeof PLAYER_SYMBOLS[number])[][]
 
 interface CantPlaceEffects {
   dimmedCells: boolean
@@ -393,6 +395,22 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   backToMenu: []
 }>()
+
+// AI Integration
+const { getAIMove, loadModelFromStorage } = useQLearning()
+const isAIThinking = ref(false)
+
+// Check if current player is AI
+const isCurrentPlayerAI = computed(() => {
+  const currentPlayer = props.players[currentPlayerIndex.value]
+  return currentPlayer?.isAI ?? false
+})
+
+// Get current AI difficulty
+const currentAIDifficulty = computed((): AIDifficulty => {
+  const currentPlayer = props.players[currentPlayerIndex.value]
+  return currentPlayer?.aiDifficulty ?? 'medium'
+})
 
 // Helper computed properties for checking active rules
 const hasTimeLimitRule = computed(() => props.rules?.includes('timeLimit') ?? false)
@@ -437,6 +455,7 @@ const winningPlayerName = computed(() => {
   if (!winner.value) return null
   return props.players.find(player => player.symbol === winner.value)?.name ?? null
 })
+
 const boardElement = ref<HTMLElement | null>(null)
 const showMapPopup = ref(false)
 const showVictoryBadge = ref(false)
@@ -484,8 +503,8 @@ const newExpandedEdges = ref<{ top: boolean; bottom: boolean; left: boolean; rig
 // Maximum moves to track in history: 2 per player
 const maxHistorySize = computed(() => props.players.length * 2)
 
-// Win condition: 3 in a row for 2 players, 4 in a row for 3+ players
-const winLength = computed(() => props.players.length > 2 ? 4 : 3)
+// Win condition: always 4 in a row
+const winLength = computed(() => 4)
 
 const centerAreaCells = computed(() => {
   const rows = boardSize.value.rows
@@ -1049,10 +1068,52 @@ const makeMove = async (row: number, col: number) => {
       console.log('Starting timer for next player after move')
       startTimer()
     }
+
+    // Trigger AI move if next player is AI
+    await nextTick()
+    triggerAIMoveIfNeeded()
   } else {
     // Game ended, clear timer
     console.log('Game ended, clearing timer')
     clearTimer()
+  }
+}
+
+// AI Move Logic
+async function triggerAIMoveIfNeeded() {
+  if (winner.value || isDraw.value) return
+  if (!isCurrentPlayerAI.value) return
+
+  isAIThinking.value = true
+
+  // Small delay to make it feel like the AI is "thinking"
+  await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400))
+
+  try {
+    // Convert board to Q-Learning format
+    const qBoard: QBoard = board.value.map(row =>
+      row.map(cell => cell as '' | typeof PLAYER_SYMBOLS[number])
+    )
+
+    // Get player symbols in game order
+    const playerSymbols = props.players.map(p => p.symbol as typeof PLAYER_SYMBOLS[number])
+
+    // Get AI move
+    const move = getAIMove(
+      qBoard,
+      currentPlayerIndex.value,
+      playerSymbols,
+      currentAIDifficulty.value
+    )
+
+    console.log(`AI (${props.players[currentPlayerIndex.value]?.name}) chose move:`, move)
+
+    // Make the move
+    await makeMove(move.row, move.col)
+  } catch (e) {
+    console.error('AI move error:', e)
+  } finally {
+    isAIThinking.value = false
   }
 }
 
@@ -1372,6 +1433,11 @@ const resetGame = async () => {
 
   // Reset scroll position to center
   await scrollToCenter()
+
+  // Trigger AI move if first player is AI
+  setTimeout(() => {
+    triggerAIMoveIfNeeded()
+  }, 500)
 }
 
 // Center the board on mount and add keyboard listener
@@ -1392,6 +1458,18 @@ onMounted(() => {
   } else {
     console.log('Time Limit rule not active - no timer started')
   }
+
+  // Load AI model for the current player count
+  const hasAI = props.players.some(p => p.isAI)
+  if (hasAI) {
+    loadModelFromStorage(props.players.length)
+    console.log(`Loaded AI model for ${props.players.length} players`)
+  }
+
+  // Trigger AI move if first player is AI
+  setTimeout(() => {
+    triggerAIMoveIfNeeded()
+  }, 500)
 })
 
 onUnmounted(() => {
@@ -1679,6 +1757,29 @@ defineExpose({
   color: var(--color-text-secondary);
 }
 
+.fill-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.fill-indicator.can-expand {
+  background: rgba(34, 197, 94, 0.15);
+  color: rgb(34, 197, 94);
+}
+
+.fill-indicator.cannot-expand {
+  background: rgba(239, 68, 68, 0.15);
+  color: rgb(239, 68, 68);
+}
+
+.expand-status {
+  font-size: 10px;
+}
+
 .board-container {
   position: relative;
   width: 100%;
@@ -1852,6 +1953,29 @@ defineExpose({
 .cell.not-playable-patterned:hover {
   transform: none;
   border-color: rgba(71, 85, 105, 0.25);
+}
+
+/* Edge cells blocked (expansion not allowed - fill board first) */
+.cell.edge-blocked {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.cell.edge-blocked::after {
+  content: '🔒';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.cell.edge-blocked:hover {
+  transform: none;
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 /* Alert icon positioning */

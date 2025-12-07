@@ -3,7 +3,10 @@
     <!-- Pre-render holiday background (hidden until game starts) -->
     <HolidayBackground :is-visible="gameStarted" />
 
-    <div class="experience-content">
+    <!-- AI Training View -->
+    <AITraining v-if="showAITraining" @close="showAITraining = false" />
+
+    <div v-else class="experience-content">
       <header class="experience-header">
         <h1 class="experience-title heading-display">Infinite Tic-Tacs</h1>
         <p class="experience-subtitle text-tertiary">
@@ -22,7 +25,7 @@
         :exit="{ opacity: 0, y: -20, scale: 0.95 }"
         :transition="{ duration: 0.4, easing: 'ease-out' }"
       >
-        <StartMenu @start-game="handleStartGame" />
+        <StartMenu @start-game="handleStartGame" @open-ai-training="showAITraining = true" />
       </Motion>
 
       <!-- Game Board -->
@@ -67,6 +70,7 @@ import { Motion } from '@motionone/vue'
 import StartMenu from './StartMenu.vue'
 import GameBoard from './GameBoard.vue'
 import HolidayBackground from './HolidayBackground.vue'
+import AITraining from './AITraining.vue'
 import type { Player, GameSettings, CantPlaceEffects } from './StartMenu.vue'
 import RefreshIcon from './icons/RefreshIcon.vue'
 import ExitIcon from './icons/ExitIcon.vue'
@@ -82,6 +86,7 @@ import HeartIcon from './icons/HeartIcon.vue'
 import PentagonIcon from './icons/PentagonIcon.vue'
 
 const gameStarted = ref(false)
+const showAITraining = ref(false)
 const activePlayers = ref<Player[]>([])
 const gameMode = ref<'classic'>('classic')
 const gameRules = ref<string[]>([])

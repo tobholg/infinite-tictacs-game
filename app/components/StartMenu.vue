@@ -50,7 +50,7 @@
 
           <div class="players-list">
             <div v-for="(player, index) in players" :key="index" class="player-row"
-                 :class="{ 'team-row': selectedMode === 'team' }">
+                 :class="{ 'team-row': selectedMode === 'team', 'ai-player': player.isAI }">
               <div class="player-badge">{{ index + 1 }}</div>
               <div v-if="selectedMode === 'team' && player.teamId !== undefined" class="team-badge"
                    :class="`team-${player.teamId}`">
@@ -63,9 +63,30 @@
               <input
                 v-model="player.name"
                 type="text"
-                :placeholder="selectedMode === 'team' ? `Team ${player.teamId! + 1} - Player ${Math.floor(index / 2) + 1}` : `Player ${index + 1} name`"
+                :placeholder="player.isAI ? `AI ${index + 1}` : (selectedMode === 'team' ? `Team ${player.teamId! + 1} - Player ${Math.floor(index / 2) + 1}` : `Player ${index + 1} name`)"
                 class="player-input"
+                :disabled="player.isAI"
                 @input="handlePlayerNameInput(index)" />
+
+              <!-- AI Toggle & Difficulty -->
+              <div class="ai-controls">
+                <button
+                  @click="toggleAI(index)"
+                  class="ai-toggle"
+                  :class="{ active: player.isAI }"
+                  :title="player.isAI ? 'Switch to Human' : 'Switch to AI'">
+                  {{ player.isAI ? '🤖' : '👤' }}
+                </button>
+                <select
+                  v-if="player.isAI"
+                  v-model="player.aiDifficulty"
+                  class="ai-difficulty-select">
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+
               <button
                 v-if="players.length > 2 && selectedMode !== 'team'"
                 @click="removePlayer(index)"
@@ -73,6 +94,17 @@
                 title="Remove player">
                 ✕
               </button>
+            </div>
+
+            <!-- AI Model Status -->
+            <div v-if="hasAnyAI" class="ai-model-status">
+              <span v-if="aiModelInfo" class="model-trained">
+                🤖 AI trained with {{ aiModelInfo.gamesPlayed.toLocaleString() }} games
+              </span>
+              <span v-else class="model-untrained">
+                ⚠️ No AI trained for {{ players.length }} players yet.
+                <button @click="emit('openAiTraining')" class="train-link">Train now</button>
+              </span>
             </div>
 
             <button
@@ -151,13 +183,22 @@
 
         <!-- Start Game Button -->
         <div class="stage-footer">
-          <button
-            @click="showVisualSettings = !showVisualSettings"
-            class="btn btn-secondary settings-toggle-btn"
-            type="button">
-            <span>⚙️</span>
-            <span>{{ showVisualSettings ? 'Hide' : 'Show' }} Settings</span>
-          </button>
+          <div class="footer-actions">
+            <button
+              @click="showVisualSettings = !showVisualSettings"
+              class="btn btn-secondary settings-toggle-btn"
+              type="button">
+              <span>⚙️</span>
+              <span>{{ showVisualSettings ? 'Hide' : 'Show' }} Settings</span>
+            </button>
+            <button
+              @click="emit('openAiTraining')"
+              class="btn btn-secondary ai-training-btn"
+              type="button">
+              <span>🤖</span>
+              <span>Train AI</span>
+            </button>
+          </div>
           <button
             @click="handleStartGame"
             class="btn btn-primary btn-large btn-start-game"
@@ -179,6 +220,7 @@
 import { ref, computed, onMounted } from 'vue'
 import CharacterPicker from './CharacterPicker.vue'
 import { useTheme, type ThemePreference } from '~/composables/useTheme'
+import { useQLearning, type AIDifficulty } from '~/composables/useQLearning'
 
 interface GamePreset {
   id: string
@@ -197,6 +239,8 @@ export interface Player {
   symbol: PlayerSymbol
   active: boolean
   teamId?: number  // Optional team identifier for team mode
+  isAI?: boolean   // Whether this player is controlled by AI
+  aiDifficulty?: AIDifficulty  // AI difficulty level
 }
 
 export interface CantPlaceEffects {
@@ -213,8 +257,12 @@ export interface GameSettings {
   cantPlaceEffects?: CantPlaceEffects
 }
 
+// Get AI model info
+const { hasStoredModel, getStoredModelInfo } = useQLearning()
+
 const emit = defineEmits<{
   startGame: [settings: GameSettings]
+  openAiTraining: []
 }>()
 
 // Game configuration
@@ -265,7 +313,28 @@ const players = ref<Player[]>([
   { name: 'Player 2', symbol: 'O', active: true }
 ])
 
-const activePlayers = computed(() => players.value.filter(p => p.active && p.name.trim() !== ''))
+const activePlayers = computed(() => players.value.filter(p => p.active && (p.name.trim() !== '' || p.isAI)))
+
+// AI-related computed properties
+const hasAnyAI = computed(() => players.value.some(p => p.isAI))
+
+const aiModelInfo = computed(() => {
+  if (!hasAnyAI.value) return null
+  return getStoredModelInfo(players.value.length)
+})
+
+function toggleAI(index: number) {
+  const player = players.value[index]
+  player.isAI = !player.isAI
+  if (player.isAI) {
+    player.name = `AI ${index + 1}`
+    player.aiDifficulty = 'medium'
+    player.active = true
+  } else {
+    player.name = `Player ${index + 1}`
+    player.aiDifficulty = undefined
+  }
+}
 
 const favoritePresetsData = computed(() => {
   return gamePresets.filter(preset => favoritePresets.value.includes(preset.id))
@@ -1204,7 +1273,7 @@ onMounted(() => {
 
 .player-row {
   display: grid;
-  grid-template-columns: 40px auto 1fr auto;
+  grid-template-columns: 40px auto 1fr auto auto;
   gap: var(--space-3);
   align-items: center;
   padding: var(--space-3);
@@ -1217,7 +1286,7 @@ onMounted(() => {
 }
 
 .player-row.team-row {
-  grid-template-columns: 40px 80px auto 1fr;
+  grid-template-columns: 40px 80px auto 1fr auto;
 }
 
 .player-row:hover {
@@ -1304,6 +1373,94 @@ onMounted(() => {
 
 .add-player-btn {
   align-self: flex-start;
+}
+
+/* AI Controls */
+.ai-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ai-toggle {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: var(--color-bg-muted);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 1.25rem;
+  transition: all var(--transition-base);
+}
+
+.ai-toggle:hover {
+  border-color: var(--color-accent);
+  transform: scale(1.05);
+}
+
+.ai-toggle.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
+  border-color: var(--color-accent);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+}
+
+.ai-difficulty-select {
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.ai-difficulty-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.player-row.ai-player {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.player-row.ai-player .player-input {
+  opacity: 0.7;
+}
+
+/* AI Model Status */
+.ai-model-status {
+  padding: var(--space-3);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  text-align: center;
+  font-size: var(--text-sm);
+}
+
+.model-trained {
+  color: #22c55e;
+}
+
+.model-untrained {
+  color: #f59e0b;
+}
+
+.train-link {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  margin-left: var(--space-1);
+}
+
+.train-link:hover {
+  color: var(--color-accent-strong);
 }
 
 /* Stage Footer */
