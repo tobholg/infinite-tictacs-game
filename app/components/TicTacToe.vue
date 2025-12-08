@@ -1,11 +1,33 @@
 <template>
-  <div class="experience-shell" :class="{ 'game-active': gameStarted }">
+  <div class="experience-shell" :class="{ 'game-active': gameStarted || isOnlineMode }">
     <!-- Pre-render holiday background (hidden until game starts) -->
-    <HolidayBackground :is-visible="gameStarted" />
+    <HolidayBackground :is-visible="gameStarted || isOnlineMode" />
 
     <!-- AI Training View -->
     <AITraining v-if="showAITraining" @close="showAITraining = false" />
 
+    <!-- Online Mode -->
+    <template v-else-if="isOnlineMode">
+      <!-- Online Lobby -->
+      <OnlineLobby
+        v-if="isOnlineLobbyOrCountdown || !onlineGame.isInRoom.value"
+        @back-to-menu="handleBackToMenu"
+      />
+
+      <!-- Online Game Board -->
+      <OnlineGameBoard
+        v-else-if="isOnlineGameActive"
+        @back-to-menu="handleBackToMenu"
+      />
+
+      <!-- Online Results -->
+      <OnlineResults
+        v-else-if="isOnlineResults"
+        @back-to-menu="handleBackToMenu"
+      />
+    </template>
+
+    <!-- Local Mode -->
     <div v-else class="experience-content">
       <header class="experience-header">
         <h1 class="experience-title heading-display">Infinite Tic-Tacs</h1>
@@ -25,7 +47,11 @@
         :exit="{ opacity: 0, y: -20, scale: 0.95 }"
         :transition="{ duration: 0.4, easing: 'ease-out' }"
       >
-        <StartMenu @start-game="handleStartGame" @open-ai-training="showAITraining = true" />
+        <StartMenu
+          @start-game="handleStartGame"
+          @create-room="handleCreateRoom"
+          @join-room="handleJoinRoom"
+        />
       </Motion>
 
       <!-- Game Board -->
@@ -71,7 +97,11 @@ import StartMenu from './StartMenu.vue'
 import GameBoard from './GameBoard.vue'
 import HolidayBackground from './HolidayBackground.vue'
 import AITraining from './AITraining.vue'
-import type { Player, GameSettings, CantPlaceEffects } from './StartMenu.vue'
+import OnlineLobby from './OnlineLobby.vue'
+import OnlineGameBoard from './OnlineGameBoard.vue'
+import OnlineResults from './OnlineResults.vue'
+import { useOnlineGame } from '~/composables/useOnlineGame'
+import type { Player, GameSettings, CantPlaceEffects, OnlineHostSettings } from './StartMenu.vue'
 import RefreshIcon from './icons/RefreshIcon.vue'
 import ExitIcon from './icons/ExitIcon.vue'
 import XIcon from './icons/XIcon.vue'
@@ -85,6 +115,10 @@ import PlusIcon from './icons/PlusIcon.vue'
 import HeartIcon from './icons/HeartIcon.vue'
 import PentagonIcon from './icons/PentagonIcon.vue'
 
+// Game mode: 'local' | 'online'
+const isOnlineMode = ref(false)
+
+// Local game state
 const gameStarted = ref(false)
 const showAITraining = ref(false)
 const activePlayers = ref<Player[]>([])
@@ -97,6 +131,17 @@ const cantPlaceEffects = ref<CantPlaceEffects>({
   warningIcon: false
 })
 const gameBoardRef = ref<InstanceType<typeof GameBoard> | null>(null)
+
+// Online game state
+const onlineGame = useOnlineGame()
+
+// Computed for online routing
+const onlinePhase = computed(() => onlineGame.roomPhase.value)
+const isOnlineGameActive = computed(() => onlinePhase.value === 'ROUND_ACTIVE')
+const isOnlineResults = computed(() => onlinePhase.value === 'ROUND_RESULTS')
+const isOnlineLobbyOrCountdown = computed(() =>
+  onlinePhase.value === 'LOBBY' || onlinePhase.value === 'COUNTDOWN'
+)
 
 const handleStartGame = (settings: GameSettings) => {
   activePlayers.value = settings.players
@@ -111,10 +156,29 @@ const handleStartGame = (settings: GameSettings) => {
   gameStarted.value = true
 }
 
+const handleCreateRoom = async (settings: OnlineHostSettings) => {
+  isOnlineMode.value = true
+  // Initialize and create room with the host name
+  onlineGame.initialize()
+  await onlineGame.createRoom(settings.hostName)
+}
+
+const handleJoinRoom = async (code: string, name: string, asSpectator: boolean) => {
+  isOnlineMode.value = true
+  // Initialize and join the room
+  onlineGame.initialize()
+  await onlineGame.joinRoom(code, name, asSpectator)
+}
+
 const handleBackToMenu = () => {
+  // Reset local game state
   gameStarted.value = false
   timeLimit.value = undefined
   gameBoardRef.value?.resetGame()
+
+  // Reset online mode
+  isOnlineMode.value = false
+  onlineGame.destroy()
 }
 
 const handleRestart = () => {

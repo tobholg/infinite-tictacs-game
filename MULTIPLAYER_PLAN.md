@@ -1,152 +1,301 @@
-# Multiplayer Implementation Plan
-## Infinite Tic-Tacs - Kahoot-Style Multiplayer
+## Updated Multiplayer Implementation Checklist (AI-ready)
 
-### Overview
-Create a Kahoot-style experience where one host projects or screen-shares the board while dozens of players join from their own devices, submit moves/answers in real time, and watch a synchronized leaderboard. The plan below ties product goals to architecture decisions and breaks implementation into verifiable phases so we can ship a reliable multiplayer MVP, then iterate toward large sessions.
+### Phase 0 — Modes & config
 
----
+* [x] Keep **two modes** in UI and logic:
 
-## Product Requirements
+  * [x] **Local mode** = current behavior, no socket, fully offline.
+  * [x] **Online Kahoot mode** = new flow.
+* [x] Add feature flag/envs:
 
-### Player & Host Flow
-- **Host setup**: Host selects board options (size, win condition, powerups) and creates a session that yields a 6-character code + shareable link.
-- **Join experience**: Players enter a nickname + code, see a lobby with current participants, latency indicator, and ready state.
-- **Game loop**: Host starts rounds with a 3-second countdown. All devices receive synchronized state packets (board, timer, turn order). Players lock in moves before the timer expires; late moves are rejected with feedback.
-- **Scoreboard**: After each round, everyone sees updated rankings, streak bonuses, and highlights similar to Kahoot.
-- **Re-entry**: If someone disconnects, they can rejoin with the same code and token, resume their seat, and recover state (including score and turn order).
-- **Host failover**: If the host drops, the room elects the next eligible player as host to keep the session alive.
-
-### Constraints & Targets
-- **Players per room**: MVP 20, stretch goal 50. Hard limit configurable server-side to protect resources.
-- **Latency**: <200 ms average round-trip inside one region, <500 ms globally. Countdown events must not drift more than 300 ms between clients.
-- **Security & fairness**: Throttle submissions (1 move per tick), validate server-side, ignore duplicates, and resist brute-force room-code guessing.
-- **Observability**: Track per-room lifecycle, socket joins/leaves, move latency, and error rates for alerting.
+  * [x] `MULTIPLAYER_ENABLED`
+  * [x] `SOCKET_URL`
+  * [x] `ROOM_CODE_LENGTH` (default 6)
+  * [x] `ROOM_MAX_PLAYERS` (default 20, allow config)
+  * [x] `ROOM_IDLE_TTL_MINUTES` (default 15)
 
 ---
 
-## Architecture Decision Matrix
-| Option | Dev Effort | Infra Cost | Scaling & Control | Notes |
-| --- | --- | --- | --- | --- |
-| **Socket.IO on Node** | Medium | Low (single Node + Redis) | High (custom logic, horizontal scaling) | Tight control over session logic, namespaces, security middleware; best fit for Kahoot-style orchestration. |
-| Firebase Realtime DB | Low | Pay per sync | Medium | Fast to prototype but harder to enforce server trust + rate limits for complex game rules. |
-| WebRTC + PeerJS | High | Low | Low-Medium | Host becomes single point of failure, NAT traversal pain, limited server authority. |
-| Supabase Realtime | Medium | Medium | Medium | SQL backing nice, but still need server for authoritative logic and scaling WebSocket throughput. |
+### Phase 1 — Shared deterministic game engine
 
-**Decision**: Proceed with Socket.IO + Node/Express + Redis (optional) for deterministic server authority, predictable costs, and flexibility to add analytics. Revisit managed services only if we lack ops bandwidth.
+* [x] Create pure TS engine module usable by server (and optionally client):
+
+  * [x] `createInitialState(players, rules)`
+  * [x] `isAdjacentToFilledCell(state,row,col)`
+    *first move center-only + 8-direction adjacency*
+  * [x] `isEdgeCell(state,row,col)`
+  * [x] `expandBoard(state,row,col)`
+    *must match shifting + offset rules from GameBoard.vue*
+  * [x] `checkWinner(state)` with winLength=4
+  * [x] `applyMove(state, playerId, row, col)`:
+
+    * validate legality
+    * expand on edge BEFORE placement
+    * place symbol
+    * update moveHistory
+    * check winner/draw
+    * advance turn
+    * return `{ ok, state, error? }`
+* [x] Ensure state is JSON-serializable and includes:
+
+  * [x] board, boardSize, boardOffset
+  * [x] currentPlayerIndex
+  * [x] winner, winningCells
+  * [x] moveHistory (or enough for UI effects)
+  * [x] timer fields (`timeLeft`, `turnDeadline`, etc.)
 
 ---
 
-## Implementation Phases
+### Phase 2 — Realtime server foundation (Socket.IO)
 
-### Phase 0: Alignment & Environment
-- Finalize feature flags (multiplayer_beta) and environment variables (SOCKET_URL, ROOM_CODE_LENGTH, REDIS_URL).
-- Sketch low-fidelity lobby/game/leaderboard screens so engineers and designers agree on UI states.
-- Define acceptance tests for each journey (host, join late, reconnect) before writing code.
+* [x] Add separate Node/TS Socket.IO server.
+* [x] Implement RoomStore:
 
-### Phase 1: Real-Time Backend Foundation
-- **Project setup**: Bootstrap `infinite-tictacs-server` (Express + Socket.IO + TypeScript + vitest). Add ESLint/Prettier and Dockerfile for deployment.
-- **RoomStore abstraction**: Start with in-memory Map; support pluggable Redis for persistence and host failover. Structure holds: metadata, settings, players, scores, event log, and timestamps.
-- **Code generator**: Provide collision-resistant 6-char codes, track active codes, expire rooms when empty for >15 minutes.
-- **Socket lifecycle**: Middleware for auth token (playerId), rate limits (moves/minute, join attempts), heartbeat/ping metrics, and automatic cleanup on disconnect.
-- **Event contract**:
-```ts
-interface ClientToServerEvents {
-  'create_room': (payload: { playerName: string; settings: GameSettings }) => void;
-  'join_room': (payload: { roomCode: string; playerName: string; rejoinToken?: string }) => void;
-  'start_round': () => void;
-  'submit_move': (payload: PlayerMove) => void;
-  'request_state': () => void;
-  'leave_room': () => void;
-  'restart_session': () => void;
-}
-interface ServerToClientEvents {
-  'room_created': (payload: { roomCode: string; hostToken: string }) => void;
-  'room_joined': (room: SerializedRoom);
-  'lobby_updated': (payload: { players: PlayerSummary[]; hostId: string });
-  'countdown_tick': (payload: { secondsRemaining: number; serverTime: number });
-  'round_started': (payload: RoundState);
-  'move_ack': (payload: { accepted: boolean; reason?: string });
-  'board_update': (payload: BoardState);
-  'scoreboard_update': (payload: Scoreboard);
-  'host_transferred': (payload: { newHostId: string });
-  'room_error': (payload: { code: string; message: string });
-}
+  * [x] start with in-memory Map
+  * [x] schema:
+
+    * [x] `code`, `hostId`, `status`
+    * [x] `players[]` `{id,name,symbol,isAI,aiDifficulty,connected,isSpectator?}`
+    * [x] `rules` `{winLength:4,timeLimit?,playerCount,...}`
+    * [x] `state` (engine state)
+    * [x] `phase` (state machine below)
+    * [x] `createdAt`, `lastActivityAt`
+* [x] Collision-safe room code generator.
+* [x] Cleanup job:
+
+  * [x] delete room if empty OR inactive > TTL
+
+---
+
+### Phase 3 — Event contract (final)
+
+**Client → Server**
+
+* [x] `host:create_room` `{ hostName, rules, allowSpectators, maxPlayers }`
+* [x] `player:join_room` `{ roomCode, name, playerId?, rejoinToken? }`
+* [x] `host:start_round` (or `host:start_game`)
+* [x] `player:submit_move` `{ roomCode, playerId, row, col }`
+* [x] `player:leave_room`
+* [ ] `player:request_state`
+* [x] `player:reconnect` `{ roomCode, playerId, rejoinToken }`
+
+**Server → Client**
+
+* [x] `room:created` `{ roomCode, hostToken, roomSnapshot }`
+* [x] `room:joined` `{ roomSnapshot, yourPlayerId, rejoinToken }`
+* [x] `lobby:updated` `{ players, hostId, rules, status }`
+* [x] `countdown:tick` `{ secondsRemaining, serverTimeMs }`
+* [x] `round:started` `{ gameState, serverTimeMs, turnDeadlineMs }`
+* [x] `move:ack` `{ accepted, reason? }`
+* [x] `game:state` `{ gameState }`
+* [x] `round:results` `{ winner, winningCells, isDraw, scoreboard }`
+* [x] `scoreboard:updated` `{ scoreboard }`
+* [x] `host:transferred` `{ newHostId }`
+* [x] `room:error` `{ code, message }`
+
+---
+
+### Phase 4 — Lobby state machine (Kahoot pacing)
+
+* [x] Implement server-side phase machine:
+
+  * [x] `LOBBY`
+  * [x] `COUNTDOWN`
+  * [x] `ROUND_ACTIVE`
+  * [x] `ROUND_RESULTS`
+  * [x] `COMPLETED`
+* [x] Only host can transition phases.
+* [x] Server validates legal transitions.
+
+---
+
+### Phase 5 — Countdown & timer authority
+
+* [x] When host starts round:
+
+  * [x] server enters `COUNTDOWN`
+  * [x] emits `countdown:tick` each second with serverTime
+  * [x] after countdown → `ROUND_ACTIVE`
+* [x] During `ROUND_ACTIVE`:
+
+  * [x] server tracks turn timer / deadline
+  * [x] emits time left in `game:state` or `countdown:tick`
+* [x] On timeout:
+
+  * [x] 2 players → other player wins
+  * [x] 3+ players → skip turn
+  * [x] server applies via engine and broadcasts
+* [x] Prevent client drift by using server timestamps.
+
+---
+
+### Phase 6 — Move submission rules (online)
+
+* [x] Server enforces:
+
+  * [x] game not over
+  * [x] correct phase (`ROUND_ACTIVE`)
+  * [x] 1 accepted move per turn
+  * [x] correct player's turn
+  * [x] empty cell
+  * [x] adjacency / first center rule
+  * [x] edge expansion before placement
+* [x] Reject late moves after deadline.
+* [x] Throttle:
+
+  * [x] join attempts per IP/socket (5 per 30s, 60s block)
+  * [x] move spam per player (30 per 10s)
+  * [x] room creation (3 per 60s, 120s block)
+  * [x] reconnection attempts (10 per 60s, 30s block)
+  * [x] misc actions like add/remove AI (20 per 30s)
+
+---
+
+### Phase 7 — Scoreboard & round results (Kahoot style)
+
+Your local game doesn't score, so online mode adds scoring.
+
+* [x] Define scoreboard model:
+
+  * [x] `score[playerId]`
+  * [ ] optional `streaks`, `fastMoveBonus`, etc.
+* [x] At round end:
+
+  * [x] compute winner/draw
+  * [x] update scores
+  * [x] broadcast `round:results` + `scoreboard:updated`
+* [x] Host can start next round:
+
+  * [x] reset board state (engine) but keep scores
+
+*(If you don't want rounds yet, still keep scoreboard hooks for later.)*
+
+---
+
+### Phase 8 — Server-side AI turns
+
+* [x] Allow AI players in online lobbies.
+* [x] If next player is AI on server:
+
+  * [x] call AI module to get move
+  * [x] apply via engine
+  * [x] broadcast state
+* [x] Add small thinking delay (500-1500ms).
+
+---
+
+### Phase 9 — Client integration (without breaking local mode)
+
+* [x] Add Online entry screens:
+
+  * [x] Host: create room + show PIN + live lobby list
+  * [x] Player: join by PIN + name
+* [x] Online GameBoard:
+
+  * [x] renders from `game:state` only
+  * [x] clicking cell emits `player:submit_move`
+  * [x] no local `makeMove` in online mode
+* [x] Local GameBoard stays unchanged.
+
+---
+
+### Phase 10 — Reconnect + host failover
+
+* [x] Client stores `playerId` + `rejoinToken`.
+* [x] On reconnect:
+
+  * [x] emit `player:reconnect`
+  * [x] server restores seat + sends current snapshots
+* [x] Host failover:
+
+  * [x] server maintains host queue
+  * [x] if host disconnects → promote next eligible player
+  * [x] broadcast `host:transferred`
+
+---
+
+### Phase 11 — Spectators + capacity
+
+* [x] If room is full:
+
+  * [x] allow join as spectator if enabled
+  * [x] spectators receive state/score updates
+  * [x] spectators cannot submit moves
+* [x] Server enforces max players.
+
+---
+
+### Phase 12 — Testing essentials
+
+* [x] Server unit tests for:
+
+  * [x] room code collisions
+  * [x] applyMove legality parity with local rules
+  * [x] expansion shifting correctness
+  * [x] host transfer
+  * [x] RateLimiter sliding window and blocking
+  * [x] Turn timeout behavior (2p vs 3+p)
+* [ ] Socket integration test harness:
+
+  * [ ] simulate 5–20 clients joining, playing, reconnecting
+* [ ] Simple soak script (optional):
+
+  * [ ] multiple rooms, random moves, random disconnects
+
+---
+
+## Done-definition
+
+* [x] Local mode identical to today.
+* [x] Host creates lobby and gets PIN.
+* [x] Players join from other devices via PIN.
+* [x] Countdown/round pacing works and is synced.
+* [x] Infinite board rules behave identically online.
+* [x] Server rejects illegal/late moves.
+* [x] Everyone sees same board instantly.
+* [x] Scores update after rounds.
+* [x] AI works online.
+* [x] Reconnect restores players.
+* [x] Host failover keeps room alive.
+* [x] Room cleanup prevents leaks.
+
+---
+
+## What's Ready vs. Remaining
+
+### Ready to Play:
+- Local/Online mode selection in UI
+- Create room & get PIN
+- Join room with PIN
+- Countdown before game starts
+- Real-time gameplay with server-authoritative state
+- Board expansion works online
+- Win detection & round results
+- Scoreboard tracking
+- Multi-round support
+- Host failover
+- Reconnection with tokens
+- Spectator mode (join as spectator to watch games)
+- Turn timeout handling (skip turn with 3+ players, forfeit with 2 players)
+- **Server-side AI players** (hosts can add/remove AI bots with easy/medium/hard difficulty)
+- **Rate limiting** (prevents spam on joins, moves, room creation, reconnects, actions)
+
+### Remaining (Future Enhancements):
+- Full test suite (Phase 12)
+
+---
+
+## How to Run
+
+```bash
+# Install dependencies
+npm install
+npm run server:install
+
+# Run both client and server
+npm run dev:all
+
+# Or separately:
+# Terminal 1: npm run dev (client on :3001)
+# Terminal 2: npm run server:dev (server on :3002)
 ```
-- **Host transfer**: Maintain host queue; on disconnect, promote next ready player and broadcast `host_transferred`.
-- **Persistence hooks**: Append key events to Redis Streams (or file logs) for auditing and for replay on reconnect.
-
-### Phase 2: Session & Kahoot-Like Mechanics
-- **Lobby state machine**: `IDLE → COUNTDOWN → ROUND_ACTIVE → ROUND_RESULTS → COMPLETED`. Store in room metadata; state transitions validated server-side.
-- **Countdown sync**: Server emits `countdown_tick` every second with authoritative timestamp; clients compute drift and adjust animations.
-- **Round handling**:
-  1. Host triggers `start_round` (disabled unless state `IDLE` or `ROUND_RESULTS`).
-  2. Server composes `RoundState` with board snapshot, timers, and allowed actions, then broadcasts `round_started`.
-  3. Players send `submit_move`; server validates (turn order, board vacancy, time window) and either updates board immediately or queues depending on mode.
-  4. After timer or when round ends, server resolves winners, updates streaks/bonuses, and emits `scoreboard_update` + `ROUND_RESULTS` state.
-- **Move validation**: Use deterministic engine shared with existing local mode to prevent divergence. Persist `moveHistory` for later review.
-- **Rejoin flow**: When `join_room` includes `rejoinToken`, fetch stored seat and state; respond with `room_joined` plus `resumeHint` (current state, timer offset).
-- **Spectator path**: Flag players as `isSpectator` when room full; they receive board/score updates but cannot submit moves.
-
-### Phase 3: Frontend & UX
-- **Socket composable**: Expand `useSocket`/`useMultiplayer` to expose room status, countdown, scoreboard, connection health, and host-only actions. Include auto-reconnect with exponential backoff and queued intents for offline-to-online transitions.
-- **UI states**:
-  - **Start Menu**: Host/Join toggle, name entry, session settings summary.
-  - **Lobby**: Player list, readiness indicator, host controls, shareable code & link, troubleshooting tips.
-  - **Countdown overlay**: Sync animation referencing server time, fallback to textual timer when drift >150 ms.
-  - **Round view**: Board, move controls, indicator when input locked, latency badge.
-  - **Scoreboard**: Animated rank changes, highlight streaks, CTA to continue or restart.
-  - **Error & reconnect modals**: Show reasons from `room_error`, allow retry/resume.
-- **State management**: Represent game flow as a discriminated union or finite state machine to guarantee UI coverage for each backend state. Derive derived props (isHost, canSubmit) instead of duplicating logic.
-- **Accessibility & mobile**: Large tap targets, color-blind safe palette, orientation locks for host display.
-- **Analytics hooks**: Emit events (create_room, start_round, round_complete) to existing analytics service for later tuning.
-
-### Phase 4: Testing & Quality
-- **Automated server tests**: Unit-test RoomManager, move validator, and host transfer logic. Use Socket.IO test harness to simulate multi-client flows (join -> start -> submit -> disconnect -> rejoin).
-- **Frontend component tests**: Validate lobby/board components render correct states based on mocked composable data. Snapshot scoreboard transitions.
-- **Integration harness**: Script using `vitest` or `jest` + `socket.io-client` to spin multiple clients and assert timeline events and scoreboard correctness.
-- **Chaos & soak**: CLI tool to simulate 25 rooms × 20 players for 10 minutes, injecting disconnects, high latency (tc/netem), and duplicate submissions to ensure stability.
-- **Manual scenarios**: QA checklist for host drop, network blip, late join after round start, spectators, and mobile rotation.
-
-### Phase 5: Operations & Deployment
-- **Deployment**: Containerize server, deploy to Railway/Fly with sticky sessions disabled (Socket.IO uses Engine.IO + Redis adapter for scale). Configure environment secrets and rolling deploy strategy.
-- **Monitoring**: Ship structured logs (roomCode, event, duration). Expose Prometheus metrics: active_rooms, active_players, avg_move_latency, failed_submissions, redis_queue_depth.
-- **Alerting**: Threshold-based alerts when error rate >2% for 5 minutes or move latency >400 ms p95.
-- **Feature flag rollout**: Gate multiplayer UI by `multiplayer_beta` to allow canary release. Provide override query param for testers.
-- **Support tooling**: Admin endpoint or CLI to list rooms, force close, or transfer host manually for support incidents.
-
----
-
-## Testing Strategy (Detailed)
-1. **Unit**: Deterministic tests for code generator collisions, countdown scheduler accuracy, and scoreboard calculations (streak, tie-breakers).
-2. **Contract**: JSON schema tests to guarantee server/client payload compatibility—run in CI when either side changes types.
-3. **Latency simulation**: Use `toxiproxy` or `comcast` to inject +200 ms latency and packet loss to validate countdown drift corrections.
-4. **Load & soak**: Artillery/k6 scripts hitting create/join/start/end flows. Success metrics: CPU <70%, memory stable, <1% failed sockets during 10-minute soak.
-5. **Security**: Fuzz room-code entry, brute-force detection, rate-limit verification, and ensure private rooms cannot be joined without code.
-
----
-
-## Operations & Resources
-- **Docs & references**: Socket.IO v4 guide, Nuxt 3 WebSocket recipe, Redis Streams for event sourcing, Render/Fly WebSocket deployment notes.
-- **Runbooks**: Document procedures for scaling horizontally, invalidating rooms stuck in LIMBO state, and restoring service after Redis failure.
-- **Telemetry dashboard**: Grafana panels for top rooms, connection churn, countdown drift, and reconnect success rate to inform UX tweaks.
-
----
-
-## Next Steps
-1. Lock product requirement doc and UI wireframes with stakeholders.
-2. Scaffold backend repo, CI, and minimal `create_room`/`join_room` flow.
-3. Integrate socket composable in Nuxt app behind feature flag; build lobby UI shell.
-4. Implement countdown + round state transitions end-to-end.
-5. Harden reconnect + host transfer, then execute automated + manual test suites.
-6. Deploy to staging, run pilot with internal testers, gather metrics, and iterate.
-
----
-
-## Open Questions
-1. Should we support matchmaking (auto-join public rooms) or only private codes for MVP?
-2. Do we need authentication/accounts or are nicknames sufficient for now?
-3. How long should finished rooms persist for analytics/replays, and where do we store them?
-4. Are there premium settings (custom colors, audio cues) that require future-proofing in the API?
-5. What is the expectation for mobile bandwidth/offline—should we queue moves offline for a short grace period?
-
-This roadmap keeps the Kahoot-style experience front-and-center while giving engineering a concrete, testable plan from backend foundations through launch operations.

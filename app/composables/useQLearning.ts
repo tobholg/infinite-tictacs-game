@@ -6,13 +6,16 @@
 
 import { ref, computed } from 'vue'
 
-// Player symbols matching the game
-export const PLAYER_SYMBOLS = ['X', 'O', 'Square', 'Star', 'Triangle', 'Diamond', 'Circle', 'Plus', 'Heart', 'Pentagon'] as const
-export type PlayerSymbol = typeof PLAYER_SYMBOLS[number]
-export type CellValue = '' | PlayerSymbol
-export type Board = CellValue[][]
-
-export type AIDifficulty = 'easy' | 'medium' | 'hard'
+// Import shared types (avoid duplicate definitions)
+// NOTE: Do NOT re-export these types here - it causes Nuxt auto-import warnings
+// Consumers should import types directly from '../../shared/types/index'
+import {
+  PLAYER_SYMBOLS,
+  type PlayerSymbol,
+  type CellValue,
+  type Board,
+  type AIDifficulty,
+} from '../../shared/types/index'
 
 export interface QTableEntry {
   visits: number
@@ -42,7 +45,14 @@ export interface MultiModelProgress {
   modelProgress: Record<number, { current: number; total: number }>
 }
 
-export interface GameState {
+export interface ModelTrainingConfig {
+  playerCount: number
+  enabled: boolean
+  gamesToTrain: number // How many games to train for this model
+}
+
+// AI-specific game state (simpler than shared GameState, used for training)
+export interface AIGameState {
   board: Board
   currentPlayerIndex: number
   players: PlayerSymbol[]
@@ -160,7 +170,7 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
   })
 
   // Current game state for visualization
-  const currentGame = ref<GameState>(createInitialGameState())
+  const currentGame = ref<AIGameState>(createInitialGameState())
 
   // Training control
   const isTraining = ref(false)
@@ -182,9 +192,15 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
       savedAt: new Date().toISOString()
     }
     try {
-      localStorage.setItem(key, JSON.stringify(model))
+      const jsonStr = JSON.stringify(model)
+      localStorage.setItem(key, jsonStr)
+      console.log(`[Q-Learning] Saved ${config.value.playerCount}p model: ${stats.value.gamesPlayed} games, ${qTable.value.size} states, ${(jsonStr.length / 1024).toFixed(1)}KB`)
     } catch (e) {
       console.error('Failed to save model to localStorage:', e)
+      // Check if it's a quota exceeded error
+      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+        console.error('[Q-Learning] localStorage quota exceeded! Model too large to save.')
+      }
     }
   }
 
@@ -194,12 +210,16 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
     const key = getStorageKey(count)
     try {
       const data = localStorage.getItem(key)
-      if (!data) return false
+      if (!data) {
+        console.log(`[Q-Learning] No saved model found for ${count}p`)
+        return false
+      }
       const model: SavedModel = JSON.parse(data)
       qTable.value = new Map(model.qTable)
       stats.value = { ...stats.value, ...model.stats }
       config.value = { ...config.value, ...model.config }
       stats.value.qTableSize = qTable.value.size
+      console.log(`[Q-Learning] Loaded ${count}p model: ${stats.value.gamesPlayed} games, ${qTable.value.size} states`)
       return true
     } catch (e) {
       console.error('Failed to load model from localStorage:', e)
@@ -264,7 +284,7 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
     return Array(size).fill(null).map(() => Array(size).fill(''))
   }
 
-  function createInitialGameState(): GameState {
+  function createInitialGameState(): AIGameState {
     const players = getActivePlayers()
     return {
       board: createEmptyBoard(),
@@ -1354,6 +1374,106 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
     stopTraining()
   }
 
+  /**
+   * Train selected models with custom game counts per model
+   */
+  async function startCustomMultiModelTraining(modelConfigs: ModelTrainingConfig[]): Promise<void> {
+    const enabledModels = modelConfigs.filter(m => m.enabled && m.gamesToTrain > 0)
+    if (enabledModels.length === 0) return
+
+    const totalGames = enabledModels.reduce((sum, m) => sum + m.gamesToTrain, 0)
+    const avgGamesPerModel = Math.ceil(totalGames / enabledModels.length)
+
+    multiModelProgress.value = {
+      isRunning: true,
+      currentPlayerCount: enabledModels[0]!.playerCount,
+      completedModels: 0,
+      totalModels: enabledModels.length,
+      gamesPerModel: avgGamesPerModel, // Approximation for progress display
+      modelProgress: Object.fromEntries(enabledModels.map(m => [m.playerCount, { current: 0, total: m.gamesToTrain }]))
+    }
+
+    isTraining.value = true
+
+    const visualize = trainingSpeed.value > 0
+    const visualizationInterval = 100
+
+    for (const modelConfig of enabledModels) {
+      if (!multiModelProgress.value.isRunning) break
+
+      const { playerCount, gamesToTrain } = modelConfig
+
+      // Switch to this player count (loads existing model if any)
+      setPlayerCount(playerCount)
+      multiModelProgress.value.currentPlayerCount = playerCount
+
+      // Reset progress for this model
+      progress.value = { current: 0, total: gamesToTrain, isRunning: true }
+
+      const batchSize = config.value.parallelGames
+      let gamesSinceVisualization = 0
+
+      for (let i = 0; i < gamesToTrain && multiModelProgress.value.isRunning; i += batchSize) {
+        const gamesToPlay = Math.min(batchSize, gamesToTrain - i)
+
+        // Periodically show a visualization game
+        if (visualize && gamesSinceVisualization >= visualizationInterval) {
+          await playOneGame(true)
+          gamesSinceVisualization = 0
+        }
+
+        // Run batch of games
+        const results: { winner: CellValue | null; moveHistory: MoveRecord[] }[] = []
+        for (let j = 0; j < gamesToPlay; j++) {
+          results.push(playOneGameSync())
+        }
+
+        // Update Q-values
+        const players = getActivePlayers()
+        for (const result of results) {
+          updateQValues(result.moveHistory, result.winner, players)
+          stats.value.gamesPlayed++
+          if (result.winner) {
+            stats.value.winsByPlayer[result.winner as string] = (stats.value.winsByPlayer[result.winner as string] || 0) + 1
+          } else {
+            stats.value.draws++
+          }
+        }
+
+        gamesSinceVisualization += gamesToPlay
+
+        // Decay epsilon
+        stats.value.currentEpsilon = Math.max(
+          config.value.minExploration,
+          stats.value.currentEpsilon * Math.pow(config.value.explorationDecay, gamesToPlay)
+        )
+
+        // Update progress
+        const currentProgress = Math.min(i + gamesToPlay, gamesToTrain)
+        progress.value.current = currentProgress
+        multiModelProgress.value.modelProgress[playerCount] = { current: currentProgress, total: gamesToTrain }
+
+        // Auto-save periodically
+        if (stats.value.gamesPlayed % 10000 === 0) {
+          saveModelToStorage()
+        }
+
+        // Allow UI updates
+        await new Promise(resolve => setTimeout(resolve, 1))
+      }
+
+      // Save this model after completing training
+      saveModelToStorage()
+      console.log(`Model ${playerCount}p saved with ${stats.value.gamesPlayed} games`)
+
+      multiModelProgress.value.completedModels++
+    }
+
+    isTraining.value = false
+    progress.value.isRunning = false
+    multiModelProgress.value.isRunning = false
+  }
+
   // ===== Model Export/Import =====
 
   function exportModel(): string {
@@ -1372,6 +1492,10 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
       stats.value = { ...stats.value, ...data.stats }
       config.value = { ...config.value, ...data.config }
       stats.value.qTableSize = qTable.value.size
+
+      // Save imported model to localStorage so it's available in games
+      saveModelToStorage()
+      console.log(`Model imported and saved for ${config.value.playerCount} players (${stats.value.qTableSize} states)`)
     } catch (e) {
       console.error('Failed to import model:', e)
     }
@@ -1543,6 +1667,7 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
     startTraining,
     stopTraining,
     startTrainingAllModels,
+    startCustomMultiModelTraining,
     stopAllTraining,
     playOneGame,
     resetTraining,

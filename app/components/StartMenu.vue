@@ -1,23 +1,54 @@
 <template>
   <div class="start-menu">
-    <!-- Single Page Setup - No Stages -->
-    <div class="stage-content">
+    <!-- Stage: Mode Selection -->
+    <Transition name="slide-fade" mode="out-in">
+      <div v-if="stage === 'mode-select'" key="mode-select" class="stage-content">
+        <section class="config-section mode-select-section">
+          <div class="section-header centered">
+            <h2 class="section-title large">How do you want to play?</h2>
+          </div>
+          <div class="mode-cards">
+            <button class="mode-card" @click="selectLocalMode">
+              <span class="mode-icon">🎮</span>
+              <span class="mode-label">Local Game</span>
+              <span class="mode-desc">Play on this device</span>
+            </button>
+            <button class="mode-card" @click="selectOnlineMode">
+              <span class="mode-icon">🌐</span>
+              <span class="mode-label">Online</span>
+              <span class="mode-desc">Play with friends via room code</span>
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Stage: Local Setup -->
+      <div v-else-if="stage === 'local-setup'" key="local-setup" class="stage-content">
+        <!-- Header with Back and Settings -->
+        <div class="stage-header">
+          <button class="back-btn" @click="goBack">
+            <span>&larr;</span>
+            <span>Back</span>
+          </button>
+          <button class="settings-btn" @click="showSettings = true">
+            <span>⚙️</span>
+            <span>Settings</span>
+          </button>
+        </div>
 
         <!-- Game Mode -->
         <section class="config-section">
           <div class="section-header">
             <h3 class="section-title">Game Mode</h3>
-            <p class="section-description">Select your favorite mode from the quick picks below</p>
+            <p class="section-description">Select your favorite mode</p>
           </div>
-
-          <!-- Favorites -->
-          <div v-if="favoritePresetsData.length > 0" class="presets-grid">
-            <label v-for="preset in favoritePresetsData" :key="preset.id"
+          <div class="presets-grid">
+            <label v-for="preset in gamePresets" :key="preset.id"
                    class="preset-card"
                    :class="{ selected: isPresetSelected(preset) }">
               <input type="radio"
                      :checked="isPresetSelected(preset)"
-                     @change="selectPresetFromFavorite(preset)" />
+                     @change="selectPreset(preset)" />
               <div class="preset-icon">{{ preset.icon }}</div>
               <div class="preset-info">
                 <h4 class="preset-name">{{ preset.name }}</h4>
@@ -30,40 +61,26 @@
               </div>
             </label>
           </div>
-
-          <!-- Empty State -->
-          <div v-else class="empty-state">
-            <div class="empty-icon">⭐</div>
-            <p class="empty-text">No favorites yet</p>
-            <p class="empty-hint">Continue to next page to browse the preset gallery</p>
-          </div>
         </section>
 
         <!-- Configure Players -->
         <section class="config-section">
           <div class="section-header">
             <h3 class="section-title">Players</h3>
-            <p class="section-description">
-              {{ selectedMode === 'team' ? 'Set team names - teammates share symbols and alternate turns' : 'Set player names and symbols' }}
-            </p>
+            <p class="section-description">Set player names and symbols</p>
           </div>
 
           <div class="players-list">
             <div v-for="(player, index) in players" :key="index" class="player-row"
-                 :class="{ 'team-row': selectedMode === 'team', 'ai-player': player.isAI }">
+                 :class="{ 'ai-player': player.isAI }">
               <div class="player-badge">{{ index + 1 }}</div>
-              <div v-if="selectedMode === 'team' && player.teamId !== undefined" class="team-badge"
-                   :class="`team-${player.teamId}`">
-                Team {{ player.teamId + 1 }}
-              </div>
               <CharacterPicker
                 v-model="player.symbol"
-                :used-symbols="getUsedSymbols(index)"
-                :disabled="selectedMode === 'team'" />
+                :used-symbols="getUsedSymbols(index)" />
               <input
                 v-model="player.name"
                 type="text"
-                :placeholder="player.isAI ? `AI ${index + 1}` : (selectedMode === 'team' ? `Team ${player.teamId! + 1} - Player ${Math.floor(index / 2) + 1}` : `Player ${index + 1} name`)"
+                :placeholder="player.isAI ? `AI ${index + 1}` : `Player ${index + 1} name`"
                 class="player-input"
                 :disabled="player.isAI"
                 @input="handlePlayerNameInput(index)" />
@@ -88,7 +105,7 @@
               </div>
 
               <button
-                v-if="players.length > 2 && selectedMode !== 'team'"
+                v-if="players.length > 2"
                 @click="removePlayer(index)"
                 class="btn-remove"
                 title="Remove player">
@@ -103,12 +120,11 @@
               </span>
               <span v-else class="model-untrained">
                 ⚠️ No AI trained for {{ players.length }} players yet.
-                <button @click="emit('openAiTraining')" class="train-link">Train now</button>
               </span>
             </div>
 
             <button
-              v-if="players.length < 10 && selectedMode !== 'team'"
+              v-if="players.length < 10"
               @click="addPlayer"
               class="btn btn-secondary add-player-btn">
               <span>+</span>
@@ -117,93 +133,13 @@
           </div>
         </section>
 
-        <!-- Visual Settings -->
-        <section class="config-section effects-settings" v-if="showVisualSettings">
-          <div class="section-header">
-            <h3 class="section-title">Visual Settings</h3>
-            <p class="section-description">Customize the look and feel of your game</p>
-          </div>
-
-          <!-- Theme Selector -->
-          <div class="theme-selector">
-            <h4 class="subsection-label">Theme</h4>
-            <div class="theme-options">
-              <label class="theme-option" :class="{ active: themePreference === 'auto' }">
-                <input type="radio" name="theme" value="auto" :checked="themePreference === 'auto'" @change="setPreference('auto')" />
-                <span class="theme-icon">🎄</span>
-                <span class="theme-label">Auto</span>
-                <span class="theme-hint">{{ isDecember ? 'Christmas active' : 'Default active' }}</span>
-              </label>
-              <label class="theme-option" :class="{ active: themePreference === 'christmas' }">
-                <input type="radio" name="theme" value="christmas" :checked="themePreference === 'christmas'" @change="setPreference('christmas')" />
-                <span class="theme-icon">❄️</span>
-                <span class="theme-label">Christmas</span>
-                <span class="theme-hint">Always festive</span>
-              </label>
-              <label class="theme-option" :class="{ active: themePreference === 'default' }">
-                <input type="radio" name="theme" value="default" :checked="themePreference === 'default'" @change="setPreference('default')" />
-                <span class="theme-icon">🌙</span>
-                <span class="theme-label">Default</span>
-                <span class="theme-hint">Classic neon</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Blocked Cells Settings -->
-          <h4 class="subsection-label">Blocked Cells Appearance</h4>
-          <div class="effects-grid">
-            <label class="effect-card" :class="{ active: cantPlaceEffects.dimmedCells }">
-              <input type="checkbox" v-model="cantPlaceEffects.dimmedCells" />
-              <span class="effect-icon">🌘</span>
-              <div class="effect-info">
-                <h4 class="effect-name">Dimmed Cells</h4>
-                <p class="effect-description">Lower opacity on unavailable cells for subtle depth</p>
-              </div>
-            </label>
-
-            <label class="effect-card" :class="{ active: cantPlaceEffects.stripedPattern }">
-              <input type="checkbox" v-model="cantPlaceEffects.stripedPattern" />
-              <span class="effect-icon">▧</span>
-              <div class="effect-info">
-                <h4 class="effect-name">Striped Pattern</h4>
-                <p class="effect-description">Diagonal lines to clearly mark blocked zones</p>
-              </div>
-            </label>
-
-            <label class="effect-card" :class="{ active: cantPlaceEffects.warningIcon }">
-              <input type="checkbox" v-model="cantPlaceEffects.warningIcon" />
-              <span class="effect-icon">⚠️</span>
-              <div class="effect-info">
-                <h4 class="effect-name">Warning Badge</h4>
-                <p class="effect-description">Show indicator icon on non-playable cells</p>
-              </div>
-            </label>
-          </div>
-        </section>
-
         <!-- Start Game Button -->
         <div class="stage-footer">
-          <div class="footer-actions">
-            <button
-              @click="showVisualSettings = !showVisualSettings"
-              class="btn btn-secondary settings-toggle-btn"
-              type="button">
-              <span>⚙️</span>
-              <span>{{ showVisualSettings ? 'Hide' : 'Show' }} Settings</span>
-            </button>
-            <button
-              @click="emit('openAiTraining')"
-              class="btn btn-secondary ai-training-btn"
-              type="button">
-              <span>🤖</span>
-              <span>Train AI</span>
-            </button>
-          </div>
           <button
             @click="handleStartGame"
             class="btn btn-primary btn-large btn-start-game"
             :disabled="activePlayers.length < 2 || !selectedMode">
-            <span>🎯 !</span>
+            <span>🎯 Start Game</span>
           </button>
           <p v-if="activePlayers.length < 2" class="error-message">
             At least 2 players required to start
@@ -212,14 +148,174 @@
             Please select a game mode
           </p>
         </div>
-    </div>
+      </div>
+
+      <!-- Stage: Online Selection -->
+      <div v-else-if="stage === 'online-select'" key="online-select" class="stage-content">
+        <!-- Header with Back -->
+        <div class="stage-header">
+          <button class="back-btn" @click="goBack">
+            <span>&larr;</span>
+            <span>Back</span>
+          </button>
+        </div>
+
+        <section class="config-section mode-select-section">
+          <div class="section-header centered">
+            <h2 class="section-title large">Online Multiplayer</h2>
+          </div>
+          <div class="mode-cards">
+            <button class="mode-card" @click="selectHostMode">
+              <span class="mode-icon">🎯</span>
+              <span class="mode-label">Host Game</span>
+              <span class="mode-desc">Create a room and invite friends</span>
+            </button>
+            <button class="mode-card" @click="joinFormExpanded = true" :class="{ expanded: joinFormExpanded }">
+              <span class="mode-icon">🔗</span>
+              <span class="mode-label">Join Game</span>
+              <span class="mode-desc">Enter a room code to join</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Join Form (inline) -->
+        <Transition name="expand">
+          <section v-if="joinFormExpanded" class="config-section join-form-section">
+            <div class="section-header">
+              <h3 class="section-title">Join a Room</h3>
+            </div>
+            <div class="join-form">
+              <div class="form-group">
+                <label for="join-name">Your Name</label>
+                <input
+                  id="join-name"
+                  v-model="joinName"
+                  type="text"
+                  placeholder="Enter your name"
+                  maxlength="20"
+                />
+              </div>
+              <div class="form-group">
+                <label for="join-code">Room Code</label>
+                <input
+                  id="join-code"
+                  v-model="joinCode"
+                  type="text"
+                  placeholder="Enter 6-letter code"
+                  maxlength="6"
+                  class="code-input"
+                  @keyup.enter="handleJoinRoom"
+                />
+              </div>
+              <div class="form-group spectator-option">
+                <label class="checkbox-label">
+                  <input type="checkbox" v-model="joinAsSpectator" />
+                  <span class="checkbox-text">Join as spectator (watch only)</span>
+                </label>
+              </div>
+              <button
+                class="btn btn-primary"
+                :disabled="!joinName.trim() || !joinCode.trim()"
+                @click="handleJoinRoom"
+              >
+                {{ joinAsSpectator ? 'Join as Spectator' : 'Join Room' }}
+              </button>
+            </div>
+          </section>
+        </Transition>
+      </div>
+
+      <!-- Stage: Host Setup -->
+      <div v-else-if="stage === 'host-setup'" key="host-setup" class="stage-content">
+        <!-- Header with Back and Settings -->
+        <div class="stage-header">
+          <button class="back-btn" @click="goBack">
+            <span>&larr;</span>
+            <span>Back</span>
+          </button>
+          <button class="settings-btn" @click="showSettings = true">
+            <span>⚙️</span>
+            <span>Settings</span>
+          </button>
+        </div>
+
+        <section class="config-section">
+          <div class="section-header centered">
+            <h2 class="section-title large">Host Online Game</h2>
+          </div>
+
+          <!-- Host Name -->
+          <div class="form-group">
+            <label for="host-name">Your Name</label>
+            <input
+              id="host-name"
+              v-model="hostName"
+              type="text"
+              placeholder="Enter your name"
+              maxlength="20"
+            />
+          </div>
+        </section>
+
+        <!-- Game Mode -->
+        <section class="config-section">
+          <div class="section-header">
+            <h3 class="section-title">Game Mode</h3>
+            <p class="section-description">Select your favorite mode</p>
+          </div>
+          <div class="presets-grid">
+            <label v-for="preset in gamePresets" :key="preset.id"
+                   class="preset-card"
+                   :class="{ selected: isPresetSelected(preset) }">
+              <input type="radio"
+                     :checked="isPresetSelected(preset)"
+                     @change="selectPreset(preset)" />
+              <div class="preset-icon">{{ preset.icon }}</div>
+              <div class="preset-info">
+                <h4 class="preset-name">{{ preset.name }}</h4>
+                <p class="preset-description">{{ preset.description }}</p>
+                <div v-if="preset.rules.length > 0" class="preset-tags">
+                  <span v-for="rule in preset.rules" :key="rule" class="tag">
+                    {{ getRuleLabel(rule) }}
+                  </span>
+                </div>
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <!-- Create Room Button -->
+        <div class="stage-footer">
+          <button
+            @click="handleCreateRoom"
+            class="btn btn-primary btn-large btn-start-game"
+            :disabled="!hostName.trim() || !selectedMode">
+            <span>🚀 Create Room</span>
+          </button>
+          <p v-if="!hostName.trim()" class="error-message">
+            Please enter your name
+          </p>
+          <p v-else-if="!selectedMode" class="error-message">
+            Please select a game mode
+          </p>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Settings Modal -->
+    <SettingsModal
+      :is-open="showSettings"
+      :cant-place-effects="cantPlaceEffects"
+      @close="showSettings = false"
+      @update:cant-place-effects="cantPlaceEffects = $event"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import CharacterPicker from './CharacterPicker.vue'
-import { useTheme, type ThemePreference } from '~/composables/useTheme'
+import SettingsModal from './SettingsModal.vue'
 import { useQLearning, type AIDifficulty } from '~/composables/useQLearning'
 
 interface GamePreset {
@@ -238,15 +334,15 @@ export interface Player {
   name: string
   symbol: PlayerSymbol
   active: boolean
-  teamId?: number  // Optional team identifier for team mode
-  isAI?: boolean   // Whether this player is controlled by AI
-  aiDifficulty?: AIDifficulty  // AI difficulty level
+  teamId?: number
+  isAI?: boolean
+  aiDifficulty?: AIDifficulty
 }
 
 export interface CantPlaceEffects {
-  dimmedCells: boolean        // Reduced opacity + darker tint
-  stripedPattern: boolean     // Diagonal stripes pattern
-  warningIcon: boolean        // Alert icon indicator
+  dimmedCells: boolean
+  stripedPattern: boolean
+  warningIcon: boolean
 }
 
 export interface GameSettings {
@@ -257,19 +353,34 @@ export interface GameSettings {
   cantPlaceEffects?: CantPlaceEffects
 }
 
+export interface OnlineHostSettings {
+  hostName: string
+  gameMode: 'classic'
+  rules: string[]
+  timeLimit?: number
+  cantPlaceEffects?: CantPlaceEffects
+}
+
 // Get AI model info
-const { hasStoredModel, getStoredModelInfo } = useQLearning()
+const { getStoredModelInfo } = useQLearning()
 
 const emit = defineEmits<{
   startGame: [settings: GameSettings]
-  openAiTraining: []
+  createRoom: [settings: OnlineHostSettings]
+  joinRoom: [code: string, name: string, asSpectator: boolean]
 }>()
+
+// Stage management
+type Stage = 'mode-select' | 'local-setup' | 'online-select' | 'host-setup'
+const stage = ref<Stage>('mode-select')
+
+// Settings modal
+const showSettings = ref(false)
 
 // Game configuration
 const selectedMode = ref<'classic'>('classic')
 const selectedRules = ref<string[]>([])
 const timePresetValue = ref<number>(10)
-const favoritePresets = ref<string[]>(['classic', 'speed-classic'])
 
 // Can't Place Effects settings
 const cantPlaceEffects = ref<CantPlaceEffects>({
@@ -278,13 +389,7 @@ const cantPlaceEffects = ref<CantPlaceEffects>({
   warningIcon: false
 })
 
-// Visual settings panel visibility
-const showVisualSettings = ref(false)
-
-// Theme settings
-const { themePreference, setPreference, isDecember } = useTheme()
-
-// Game presets - Only Classic and Speed Classic (5 sec)
+// Game presets
 const gamePresets: GamePreset[] = [
   {
     id: 'classic',
@@ -323,6 +428,59 @@ const aiModelInfo = computed(() => {
   return getStoredModelInfo(players.value.length)
 })
 
+// Online flow state
+const joinFormExpanded = ref(false)
+const joinName = ref('')
+const joinCode = ref('')
+const joinAsSpectator = ref(false)
+const hostName = ref('')
+
+// Stage navigation
+function selectLocalMode() {
+  resetLocalState()
+  stage.value = 'local-setup'
+}
+
+function selectOnlineMode() {
+  resetOnlineState()
+  stage.value = 'online-select'
+}
+
+function selectHostMode() {
+  stage.value = 'host-setup'
+}
+
+function goBack() {
+  if (stage.value === 'local-setup' || stage.value === 'online-select') {
+    stage.value = 'mode-select'
+  } else if (stage.value === 'host-setup') {
+    stage.value = 'online-select'
+  }
+}
+
+// Reset state when switching modes
+function resetLocalState() {
+  players.value = [
+    { name: 'Player 1', symbol: 'X', active: true },
+    { name: 'Player 2', symbol: 'O', active: true }
+  ]
+  selectedMode.value = 'classic'
+  selectedRules.value = []
+  timePresetValue.value = 10
+}
+
+function resetOnlineState() {
+  joinFormExpanded.value = false
+  joinName.value = ''
+  joinCode.value = ''
+  joinAsSpectator.value = false
+  hostName.value = ''
+  selectedMode.value = 'classic'
+  selectedRules.value = []
+  timePresetValue.value = 10
+}
+
+// AI functions
 function toggleAI(index: number) {
   const player = players.value[index]
   player.isAI = !player.isAI
@@ -336,10 +494,7 @@ function toggleAI(index: number) {
   }
 }
 
-const favoritePresetsData = computed(() => {
-  return gamePresets.filter(preset => favoritePresets.value.includes(preset.id))
-})
-
+// Preset selection
 const arraysEqual = (arr1: string[], arr2: string[]) => {
   if (arr1.length !== arr2.length) return false
   const sorted1 = [...arr1].sort()
@@ -362,7 +517,7 @@ const getRuleLabel = (ruleId: string) => {
   return labels[ruleId] || ruleId
 }
 
-const selectPresetFromFavorite = (preset: GamePreset) => {
+const selectPreset = (preset: GamePreset) => {
   selectedMode.value = preset.gameMode
   selectedRules.value = [...preset.rules]
   if (preset.timeLimit) {
@@ -374,6 +529,7 @@ const selectPresetFromFavorite = (preset: GamePreset) => {
   }
 }
 
+// Player management
 const handlePlayerNameInput = (index: number) => {
   const player = players.value[index]
   if (!player) return
@@ -405,6 +561,7 @@ const removePlayer = (index: number) => {
   players.value.splice(index, 1)
 }
 
+// Actions
 const handleStartGame = () => {
   if (activePlayers.value.length >= 2) {
     const settings: GameSettings = {
@@ -418,11 +575,24 @@ const handleStartGame = () => {
   }
 }
 
-onMounted(() => {
-  // Always ensure both classic modes are available
-  favoritePresets.value = ['classic', 'speed-classic']
-  localStorage.setItem('favoritePresets', JSON.stringify(favoritePresets.value))
-})
+const handleCreateRoom = () => {
+  if (hostName.value.trim() && selectedMode.value) {
+    const settings: OnlineHostSettings = {
+      hostName: hostName.value.trim(),
+      gameMode: selectedMode.value,
+      rules: [...selectedRules.value],
+      timeLimit: selectedRules.value.includes('timeLimit') ? timePresetValue.value : undefined,
+      cantPlaceEffects: { ...cantPlaceEffects.value }
+    }
+    emit('createRoom', settings)
+  }
+}
+
+const handleJoinRoom = () => {
+  if (joinName.value.trim() && joinCode.value.trim()) {
+    emit('joinRoom', joinCode.value.trim().toUpperCase(), joinName.value.trim(), joinAsSpectator.value)
+  }
+}
 </script>
 
 <style scoped>
@@ -440,23 +610,86 @@ onMounted(() => {
   gap: var(--space-3);
 }
 
+/* Stage Header */
+.stage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.settings-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-btn:hover {
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+  transform: rotate(15deg);
+}
+
 /* Transitions */
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 200ms ease;
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
 }
 
-.fade-enter-from, .fade-leave-to {
+.slide-fade-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.slide-fade-enter-from {
   opacity: 0;
+  transform: translateX(20px);
 }
 
-.expand-enter-active, .expand-leave-active {
-  transition: all 250ms ease;
-  transform-origin: top;
-}
-
-.expand-enter-from, .expand-leave-to {
+.slide-fade-leave-to {
   opacity: 0;
-  transform: scaleY(0.95);
+  transform: translateX(-20px);
+}
+
+.expand-enter-active,
+.expand-leave-active {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
 }
 
 /* Sections */
@@ -467,12 +700,16 @@ onMounted(() => {
   padding: var(--space-3) var(--space-4);
 }
 
+.mode-select-section {
+  background: linear-gradient(135deg, var(--color-surface), rgba(99, 102, 241, 0.05));
+}
+
 .section-header {
   margin-bottom: var(--space-3);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-3);
+}
+
+.section-header.centered {
+  text-align: center;
 }
 
 .section-title {
@@ -483,29 +720,56 @@ onMounted(() => {
   color: var(--color-text-primary);
 }
 
+.section-title.large {
+  font-size: var(--text-xl);
+}
+
 .section-description {
   margin: var(--space-1) 0 0 0;
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
-/* Button Icon */
-.btn-icon {
-  width: 44px;
-  height: 44px;
+/* Mode Cards */
+.mode-cards {
   display: grid;
-  place-items: center;
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 1.25rem;
-  transition: all var(--transition-base);
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
 }
 
-.btn-icon:hover {
-  border-color: var(--color-accent);
-  transform: scale(1.05);
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  background: var(--color-surface-elevated);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.mode-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.2);
+}
+
+.mode-icon {
+  font-size: 2.5rem;
+}
+
+.mode-label {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.mode-desc {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }
 
 /* Presets Grid */
@@ -599,671 +863,6 @@ onMounted(() => {
   border-radius: var(--radius-pill);
 }
 
-.time-tag {
-  background: rgba(14, 165, 233, 0.15);
-  color: #38bdf8;
-}
-
-.check-badge {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  background: var(--color-accent);
-  color: white;
-  border-radius: 50%;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-/* Current Mode Indicator */
-.mode-indicator {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-  border: 2px solid var(--color-accent);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-.mode-indicator-content {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.mode-icon-large {
-  font-size: 4rem;
-  flex-shrink: 0;
-}
-
-.mode-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.mode-name {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.mode-description {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-
-.mode-rules {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
-}
-
-.mode-rule-tag {
-  padding: 0.25rem 0.75rem;
-  background: rgba(99, 102, 241, 0.2);
-  color: var(--color-accent);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  border-radius: var(--radius-pill);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-}
-
-.mode-rule-tag.time-tag {
-  background: rgba(14, 165, 233, 0.2);
-  color: #38bdf8;
-  border-color: rgba(14, 165, 233, 0.3);
-}
-
-/* Collapsible Subsection */
-.subsection-container {
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-
-.subsection-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.subsection-toggle:hover {
-  border-color: var(--color-accent);
-  background: var(--color-surface);
-}
-
-.toggle-icon {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  transition: transform 200ms ease;
-}
-
-.toggle-icon.expanded {
-  transform: rotate(90deg);
-}
-
-.subsection-title {
-  flex: 1;
-  font-size: var(--text-md);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  text-align: left;
-}
-
-.rules-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 var(--space-2);
-  background: var(--color-accent);
-  color: white;
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
-  font-weight: 700;
-}
-
-.subsection-content {
-  margin-top: var(--space-3);
-}
-
-.subsection-description {
-  margin: 0 0 var(--space-3) 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
-
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: var(--space-4);
-  background: var(--color-bg-muted);
-  border: 2px dashed var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.empty-icon {
-  font-size: 2.5rem;
-  margin-bottom: var(--space-2);
-  opacity: 0.5;
-}
-
-.empty-text {
-  margin: 0 0 var(--space-1) 0;
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.empty-hint {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-}
-
-/* Permanent Gallery Section */
-.gallery-section-permanent {
-  background: var(--color-surface-elevated);
-}
-
-.gallery-category {
-  margin-bottom: var(--space-4);
-}
-
-.gallery-category:last-child {
-  margin-bottom: 0;
-}
-
-.category-header {
-  margin-bottom: var(--space-2);
-}
-
-.category-title {
-  margin: 0 0 var(--space-1) 0;
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.category-description {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-}
-
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-2);
-}
-
-.gallery-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.gallery-card:hover:not(.disabled) {
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
-}
-
-.gallery-card.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.gallery-card.favorited {
-  border-color: #facc15;
-}
-
-.gallery-card.selected {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(139, 92, 246, 0.24));
-  border-color: var(--color-accent);
-  box-shadow:
-    0 18px 36px rgba(99, 102, 241, 0.28),
-    0 0 0 3px rgba(99, 102, 241, 0.22);
-  transform: translateY(-4px) scale(1.015);
-  color: #eef2ff;
-}
-
-.gallery-card.selected .gallery-description {
-  color: rgba(238, 242, 255, 0.85);
-}
-
-.gallery-card.selected .gallery-name {
-  color: #ffffff;
-}
-
-.gallery-card.selected .tag,
-.preset-card.selected .tag {
-  background: rgba(15, 118, 110, 0.25);
-  color: #5eead4;
-}
-
-.favorite-btn {
-  position: absolute;
-  top: var(--space-1);
-  right: var(--space-1);
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: none;
-  font-size: 1.1rem;
-  cursor: pointer;
-  transition: all var(--transition-base);
-  opacity: 0.5;
-  z-index: 2;
-}
-
-.favorite-btn:hover,
-.favorite-btn.active {
-  opacity: 1;
-  transform: scale(1.2);
-}
-
-.settings-indicator {
-  position: absolute;
-  top: var(--space-1);
-  left: var(--space-1);
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
-  border: 1px solid var(--color-accent);
-  border-radius: 50%;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all var(--transition-base);
-  z-index: 2;
-}
-
-.settings-indicator:hover {
-  transform: scale(1.15) rotate(90deg);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
-}
-
-.gallery-icon {
-  font-size: 1.75rem;
-}
-
-.gallery-name {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.gallery-description {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  line-height: 1.3;
-}
-
-.gallery-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
-.disabled-tag {
-  margin-top: var(--space-1);
-  padding: 0.25rem 0.5rem;
-  background: rgba(148, 163, 184, 0.15);
-  color: var(--color-text-tertiary);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  border-radius: var(--radius-pill);
-  align-self: flex-start;
-}
-
-/* Rules Grid */
-.rules-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--space-2);
-}
-
-.rule-card {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.rule-card input {
-  display: none;
-}
-
-.rule-card:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
-}
-
-.rule-card.active {
-  background: var(--color-accent-soft);
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.rule-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.rule-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.rule-name {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.rule-description {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  line-height: 1.3;
-}
-
-/* Time Options */
-.time-options {
-  margin-top: var(--space-3);
-  padding: var(--space-3);
-  background: var(--color-accent-soft);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.time-label {
-  font-weight: 600;
-  color: var(--color-text-primary);
-  font-size: var(--text-sm);
-}
-
-.time-buttons {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.time-btn {
-  padding: 0.4rem 1rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.time-btn:hover {
-  border-color: var(--color-accent);
-}
-
-.time-btn.active {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: white;
-}
-
-/* Territory Mode Settings */
-.territory-settings {
-  background: var(--color-surface-elevated);
-  border: 2px solid rgba(99, 102, 241, 0.3);
-}
-
-/* Chain Reaction Mode Settings */
-.chainreaction-settings {
-  background: var(--color-surface-elevated);
-  border: 2px solid rgba(255, 152, 0, 0.3);
-}
-
-/* Effects Settings */
-.effects-settings {
-  background: var(--color-surface-elevated);
-  border: 2px solid rgba(168, 85, 247, 0.3);
-}
-
-/* Theme Selector */
-.theme-selector {
-  margin-bottom: var(--space-4);
-}
-
-.subsection-label {
-  margin: 0 0 var(--space-2) 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.theme-options {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-2);
-}
-
-.theme-option {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-base);
-  text-align: center;
-}
-
-.theme-option input {
-  display: none;
-}
-
-.theme-option:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
-}
-
-.theme-option.active {
-  background: var(--color-accent-soft);
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.theme-icon {
-  font-size: 1.75rem;
-}
-
-.theme-label {
-  font-weight: 600;
-  font-size: var(--text-sm);
-  color: var(--color-text-primary);
-}
-
-.theme-hint {
-  font-size: var(--text-xs);
-  color: var(--color-text-tertiary);
-}
-
-@media (max-width: 600px) {
-  .theme-options {
-    grid-template-columns: 1fr;
-  }
-}
-
-.effects-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-2);
-}
-
-.effect-card {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.effect-card input {
-  display: none;
-}
-
-.effect-card:hover {
-  border-color: rgba(168, 85, 247, 0.5);
-  transform: translateY(-2px);
-}
-
-.effect-card.active {
-  background: rgba(168, 85, 247, 0.1);
-  border-color: rgba(168, 85, 247, 0.5);
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
-}
-
-.effect-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.effect-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.effect-name {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.effect-description {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  line-height: 1.3;
-}
-
-.territory-options {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.territory-option-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.territory-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-weight: 700;
-  font-size: var(--text-lg);
-  color: var(--color-text-primary);
-}
-
-.label-icon {
-  font-size: 1.5rem;
-}
-
-.territory-hint {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  font-style: italic;
-}
-
-.territory-buttons {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.territory-btn {
-  padding: 0.75rem 1.5rem;
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  font-size: var(--text-md);
-  cursor: pointer;
-  transition: all var(--transition-base);
-  color: var(--color-text-primary);
-}
-
-.territory-btn:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
-}
-
-.territory-btn.active {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: white;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-}
-
 /* Players List */
 .players-list {
   display: flex;
@@ -1285,10 +884,6 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.player-row.team-row {
-  grid-template-columns: 40px 80px auto 1fr auto;
-}
-
 .player-row:hover {
   border-color: rgba(99, 102, 241, 0.5);
   background: rgba(40, 40, 60, 0.6);
@@ -1308,27 +903,6 @@ onMounted(() => {
   border-radius: var(--radius-md);
   border: 1px solid rgba(99, 102, 241, 0.3);
   box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15);
-}
-
-.team-badge {
-  padding: 0.5rem 0.75rem;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  border-radius: var(--radius-pill);
-  text-align: center;
-  white-space: nowrap;
-}
-
-.team-badge.team-0 {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.2));
-  color: rgb(59, 130, 246);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.team-badge.team-1 {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.2));
-  color: rgb(239, 68, 68);
-  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .player-input {
@@ -1448,19 +1022,80 @@ onMounted(() => {
   color: #f59e0b;
 }
 
-.train-link {
-  background: none;
-  border: none;
-  color: var(--color-accent);
-  text-decoration: underline;
-  cursor: pointer;
-  font-size: inherit;
-  padding: 0;
-  margin-left: var(--space-1);
+/* Form Groups */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
-.train-link:hover {
-  color: var(--color-accent-strong);
+.form-group label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.form-group input[type="text"] {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-muted);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--text-base);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.form-group input[type="text"]:focus {
+  border-color: var(--color-primary);
+}
+
+.form-group input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-family: monospace;
+  font-size: var(--text-lg) !important;
+  text-align: center;
+}
+
+/* Join Form Section */
+.join-form-section {
+  margin-top: var(--space-3);
+}
+
+.join-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Spectator Option */
+.spectator-option {
+  margin-top: var(--space-1);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.checkbox-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
 
 /* Stage Footer */
@@ -1469,18 +1104,6 @@ onMounted(() => {
   flex-direction: column;
   gap: var(--space-3);
   align-items: center;
-}
-
-.settings-toggle-btn {
-  align-self: center;
-}
-
-.footer-actions {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
 }
 
 /* Buttons */
@@ -1550,13 +1173,6 @@ onMounted(() => {
   box-shadow: none;
 }
 
-.player-badge-inline {
-  padding: 0.25rem 0.75rem;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-sm);
-}
-
 .error-message {
   margin: 0;
   padding: 0.75rem 1rem;
@@ -1569,28 +1185,13 @@ onMounted(() => {
 }
 
 /* Responsive */
-@media (max-width: 900px) {
+@media (max-width: 600px) {
+  .mode-cards {
+    grid-template-columns: 1fr;
+  }
+
   .presets-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-2);
-  }
-
-  .gallery-grid {
     grid-template-columns: 1fr;
-  }
-
-  .rules-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .mode-indicator-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-3);
-  }
-
-  .mode-icon-large {
-    font-size: 3rem;
   }
 
   .player-row {
@@ -1602,469 +1203,8 @@ onMounted(() => {
     grid-column: span 2;
   }
 
-  .footer-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .footer-actions .btn {
-    width: 100%;
-  }
-}
-
-/* Modal Styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: var(--space-4);
-}
-
-.modal-container {
-  background: var(--color-surface);
-  border: 2px solid var(--color-accent);
-  border-radius: var(--radius-lg);
-  max-width: 800px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
-  background: var(--color-surface);
-  z-index: 10;
-}
-
-.modal-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.modal-close-btn {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 1.5rem;
-  color: var(--color-text-secondary);
-  transition: all var(--transition-base);
-}
-
-.modal-close-btn:hover {
-  border-color: var(--color-critical);
-  color: var(--color-critical);
-  transform: rotate(90deg);
-}
-
-.modal-body {
-  padding: var(--space-4);
-}
-
-.modal-settings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.modal-description {
-  margin: 0 0 var(--space-3) 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
-
-.modal-footer {
-  display: flex;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-top: 1px solid var(--color-border);
-  justify-content: flex-end;
-  position: sticky;
-  bottom: 0;
-  background: var(--color-surface);
-  z-index: 10;
-}
-
-/* Modal Transitions */
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-  transition: opacity 300ms ease;
-}
-
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-  opacity: 0;
-}
-
-.modal-fade-enter-active .modal-container,
-.modal-fade-leave-active .modal-container {
-  transition: all 300ms ease;
-}
-
-.modal-fade-enter-from .modal-container,
-.modal-fade-leave-to .modal-container {
-  transform: scale(0.95) translateY(20px);
-  opacity: 0;
-}
-
-@media (max-width: 900px) {
-  .modal-footer {
-    flex-direction: column;
-  }
-
-  .modal-footer .btn {
-    width: 100%;
-  }
-}
-
-/* Light Mode Overrides */
-@media (prefers-color-scheme: light) {
-  /* Selected Preset Cards - Use dark text instead of white */
-  .preset-card.selected {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(129, 140, 248, 0.12));
-    color: #1e1b4b;
-    box-shadow:
-      0 20px 40px rgba(99, 102, 241, 0.2),
-      0 0 0 4px rgba(99, 102, 241, 0.15),
-      0 0 60px rgba(99, 102, 241, 0.1);
-  }
-
-  .preset-card.selected .preset-description {
-    color: rgba(30, 27, 75, 0.75);
-  }
-
-  .preset-card.selected .preset-name {
-    color: #1e1b4b;
-  }
-
-  .preset-card.selected .tag {
-    background: rgba(99, 102, 241, 0.2);
-    color: #4338ca;
-  }
-
-  /* Gallery Cards - Selected state */
-  .gallery-card.selected {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.12));
-    color: #1e1b4b;
-    box-shadow:
-      0 18px 36px rgba(99, 102, 241, 0.18),
-      0 0 0 3px rgba(99, 102, 241, 0.15);
-  }
-
-  .gallery-card.selected .gallery-description {
-    color: rgba(30, 27, 75, 0.75);
-  }
-
-  .gallery-card.selected .gallery-name {
-    color: #1e1b4b;
-  }
-
-  .gallery-card.selected .tag {
-    background: rgba(99, 102, 241, 0.2);
-    color: #4338ca;
-  }
-
-  /* Player Rows - Lighter backgrounds */
-  .player-row {
-    background: rgba(248, 250, 252, 0.8);
-    border: 2px solid rgba(99, 102, 241, 0.25);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  }
-
-  .player-row:hover {
-    border-color: rgba(99, 102, 241, 0.4);
-    background: rgba(241, 245, 249, 0.9);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
-  }
-
-  /* Player Badge - Light mode colors */
-  .player-badge {
-    background: rgba(99, 102, 241, 0.15);
-    color: #4338ca;
-    border: 1px solid rgba(99, 102, 241, 0.3);
-    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.1);
-  }
-
-  /* Player Input - Light background with dark text */
-  .player-input {
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(99, 102, 241, 0.25);
-    color: #1e293b;
-  }
-
-  .player-input:focus {
-    border-color: rgba(99, 102, 241, 0.5);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-    background: rgba(255, 255, 255, 0.95);
-  }
-
-  .player-input::placeholder {
-    color: rgba(100, 116, 139, 0.6);
-  }
-
-  /* Mode Indicator */
-  .mode-indicator {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
-  }
-
-  /* Mode Summary */
-  .mode-summary {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
-  }
-
-  /* Territory/Chain Reaction Settings */
-  .territory-settings,
-  .chainreaction-settings {
-    background: var(--color-surface);
-  }
-
-  /* Rule Cards - Active state */
-  .rule-card.active {
-    background: rgba(99, 102, 241, 0.1);
-  }
-
-  /* Time Options */
-  .time-options {
-    background: rgba(99, 102, 241, 0.08);
-  }
-
-  /* Effect Cards - Active state */
-  .effect-card.active {
-    background: rgba(168, 85, 247, 0.08);
-  }
-}
-
-/* Stage 3: Review & Start */
-.review-card {
-  background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.review-header {
-  text-align: center;
-  padding-bottom: var(--space-2);
-  border-bottom: 2px solid var(--color-border);
-}
-
-.review-title {
-  margin: 0 0 var(--space-1) 0;
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.review-subtitle {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-}
-
-.review-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.review-section-title {
-  margin: 0;
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.mode-summary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-  border: 2px solid var(--color-accent);
-  border-radius: var(--radius-md);
-}
-
-.mode-summary-icon {
-  font-size: 2.5rem;
-  flex-shrink: 0;
-}
-
-.mode-summary-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.mode-summary-name {
-  margin: 0;
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.mode-summary-description {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-}
-
-.mode-summary-rules {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.mode-specific-settings {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  background: var(--color-bg-muted);
-  border-radius: var(--radius-md);
-}
-
-.setting-chip {
-  padding: 0.375rem 0.75rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-}
-
-.setting-chip strong {
-  color: var(--color-text-primary);
-  font-weight: 600;
-}
-
-.players-review-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  justify-content: center;
-}
-
-.player-review-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  min-width: 120px;
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-}
-
-.player-review-card:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
-}
-
-.player-review-badge {
-  position: absolute;
-  top: var(--space-1);
-  left: var(--space-1);
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  font-weight: 700;
-  font-size: var(--text-xs);
-  border-radius: 50%;
-}
-
-.player-team-badge {
-  position: absolute;
-  top: var(--space-1);
-  right: var(--space-1);
-  padding: 0.2rem 0.4rem;
-  font-size: 0.65rem;
-  font-weight: 700;
-  border-radius: var(--radius-pill);
-}
-
-.player-team-badge.team-0 {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.2));
-  color: rgb(59, 130, 246);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.player-team-badge.team-1 {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.2));
-  color: rgb(239, 68, 68);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.player-review-symbol {
-  font-size: 2rem;
-  color: var(--color-accent);
-  margin: 0;
-}
-
-.player-review-name {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  text-align: center;
-  word-break: break-word;
-}
-
-.btn-start {
-  background: linear-gradient(135deg, #10b981, #059669);
-  border-color: #10b981;
-}
-
-.btn-start:hover {
-  background: linear-gradient(135deg, #059669, #047857);
-  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
-}
-
-@media (max-width: 900px) {
-  .mode-summary {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .mode-summary-icon {
-    font-size: 3rem;
-  }
-
-  .players-review-grid {
-    grid-template-columns: 1fr;
+  .stage-header {
+    flex-wrap: wrap;
   }
 }
 </style>

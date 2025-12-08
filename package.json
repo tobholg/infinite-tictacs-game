@@ -5,6 +5,11 @@
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
+    "dev:host": "nuxt dev --host",
+    "dev:all": "concurrently \"npm run dev\" \"npm run server:dev\"",
+    "dev:all:host": "concurrently \"npm run dev:host\" \"npm run server:dev\"",
+    "server:dev": "cd server && npm run dev",
+    "server:install": "cd server && npm install",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
@@ -13,7 +18,12 @@
     "@motionone/vue": "^10.16.4",
     "motion": "^12.23.24",
     "nuxt": "^4.1.2",
+    "socket.io-client": "^4.7.5",
     "vue": "^3.5.21",
     "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "baseline-browser-mapping": "^2.9.4",
+    "concurrently": "^8.2.2"
   }
 }

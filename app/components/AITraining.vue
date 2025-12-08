@@ -169,10 +169,10 @@
       <div class="models-overview-header">
         <h4>All Models Status</h4>
         <button
-          @click="startTrainAllModels"
+          @click="openTrainAllModal"
           class="btn btn-accent btn-train-all"
         >
-          🚀 Train All Models
+          🚀 Train Models
         </button>
       </div>
       <div class="models-status-grid">
@@ -185,6 +185,117 @@
           <span class="model-player-count">{{ model.playerCount }}P</span>
           <span v-if="model.trained" class="model-games">{{ (model.gamesPlayed / 1000).toFixed(0) }}K</span>
           <span v-else class="model-untrained">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Train All Models Modal -->
+    <div v-if="showTrainAllModal" class="modal-overlay" @click.self="showTrainAllModal = false">
+      <div class="modal-content train-all-modal">
+        <div class="modal-header">
+          <h3>Train Models</h3>
+          <button class="modal-close" @click="showTrainAllModal = false">&times;</button>
+        </div>
+
+        <!-- Training Mode Toggle -->
+        <div class="training-mode-section">
+          <label class="mode-toggle">
+            <input type="checkbox" v-model="trainUpToMode" />
+            <span class="toggle-label">
+              {{ trainUpToMode ? 'Train UP TO total games' : 'Train exact games per model' }}
+            </span>
+          </label>
+          <p class="mode-description">
+            {{ trainUpToMode
+              ? 'Each model trains until it reaches the target total. Already trained models train less.'
+              : 'Each selected model trains the exact number of games specified.'
+            }}
+          </p>
+        </div>
+
+        <!-- Quick Set Buttons -->
+        <div class="quick-set-section">
+          <span class="quick-set-label">Quick set:</span>
+          <button @click="setAllGames(1000)" class="quick-btn">1K</button>
+          <button @click="setAllGames(5000)" class="quick-btn">5K</button>
+          <button @click="setAllGames(10000)" class="quick-btn">10K</button>
+          <button @click="setAllGames(25000)" class="quick-btn">25K</button>
+          <button @click="setAllGames(50000)" class="quick-btn">50K</button>
+          <input
+            type="number"
+            v-model.number="defaultGamesPerModel"
+            min="100"
+            step="1000"
+            class="custom-games-input"
+            placeholder="Custom"
+          />
+        </div>
+
+        <!-- Toggle All -->
+        <div class="toggle-all-section">
+          <button @click="toggleAllModels(true)" class="toggle-btn">Select All</button>
+          <button @click="toggleAllModels(false)" class="toggle-btn">Deselect All</button>
+        </div>
+
+        <!-- Model List -->
+        <div class="model-config-list">
+          <div
+            v-for="cfg in modelTrainingConfigs"
+            :key="cfg.playerCount"
+            class="model-config-row"
+            :class="{ disabled: !cfg.enabled || cfg.gamesToTrain === 0 }"
+          >
+            <label class="model-checkbox">
+              <input type="checkbox" v-model="cfg.enabled" />
+              <span class="model-label">{{ cfg.playerCount }}P</span>
+            </label>
+
+            <div class="model-info">
+              <span class="current-games">
+                {{ (storedGamesMap[cfg.playerCount] / 1000).toFixed(1) }}K trained
+              </span>
+              <span v-if="trainUpToMode" class="arrow">→</span>
+              <span v-if="trainUpToMode" class="target-games">
+                {{ (defaultGamesPerModel / 1000).toFixed(0) }}K target
+              </span>
+            </div>
+
+            <div class="games-to-train">
+              <input
+                type="number"
+                v-model.number="cfg.gamesToTrain"
+                min="0"
+                step="1000"
+                class="games-input"
+                :disabled="!cfg.enabled"
+              />
+              <span class="games-suffix">games</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="training-summary">
+          <div class="summary-item">
+            <span class="summary-label">Models to train:</span>
+            <span class="summary-value">{{ enabledModelsCount }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Total games:</span>
+            <span class="summary-value">{{ (totalGamesToTrain / 1000).toFixed(1) }}K</span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="modal-actions">
+          <button @click="showTrainAllModal = false" class="btn btn-outline">Cancel</button>
+          <button
+            @click="startCustomTrainAll"
+            class="btn btn-primary"
+            :disabled="enabledModelsCount === 0"
+          >
+            🚀 Start Training
+          </button>
         </div>
       </div>
     </div>
@@ -293,7 +404,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { useQLearning, type PlayerSymbol } from '../composables/useQLearning'
+import { useQLearning, type PlayerSymbol, type ModelTrainingConfig } from '../composables/useQLearning'
 
 const emit = defineEmits<{
   close: []
@@ -312,6 +423,7 @@ const {
   startTraining,
   stopTraining,
   startTrainingAllModels,
+  startCustomMultiModelTraining,
   stopAllTraining,
   resetTraining,
   exportModel,
@@ -392,7 +504,64 @@ function startCustomTraining() {
   }
 }
 
-// Train All Models
+// ===== Custom Multi-Model Training =====
+const showTrainAllModal = ref(false)
+const trainUpToMode = ref(false) // false = train exactly X games, true = train up to X total
+const defaultGamesPerModel = ref(10000)
+
+// Initialize model training configs
+const modelTrainingConfigs = ref<ModelTrainingConfig[]>(
+  [2, 3, 4, 5, 6, 7, 8, 9, 10].map(pc => ({
+    playerCount: pc,
+    enabled: true,
+    gamesToTrain: 10000
+  }))
+)
+
+// Update games to train based on trainUpToMode
+function updateGamesToTrain() {
+  modelTrainingConfigs.value.forEach(cfg => {
+    if (trainUpToMode.value) {
+      const currentGames = storedGamesMap.value[cfg.playerCount] || 0
+      cfg.gamesToTrain = Math.max(0, defaultGamesPerModel.value - currentGames)
+    } else {
+      cfg.gamesToTrain = defaultGamesPerModel.value
+    }
+  })
+}
+
+// Watch for mode/default changes
+watch([trainUpToMode, defaultGamesPerModel], () => {
+  updateGamesToTrain()
+})
+
+// Toggle all models
+function toggleAllModels(enabled: boolean) {
+  modelTrainingConfigs.value.forEach(cfg => {
+    cfg.enabled = enabled
+  })
+}
+
+// Set same games for all
+function setAllGames(games: number) {
+  defaultGamesPerModel.value = games
+  updateGamesToTrain()
+}
+
+// Open the Train All modal
+function openTrainAllModal() {
+  refreshModelStatuses()
+  updateGamesToTrain()
+  showTrainAllModal.value = true
+}
+
+// Start the custom multi-model training
+function startCustomTrainAll() {
+  showTrainAllModal.value = false
+  startCustomMultiModelTraining(modelTrainingConfigs.value)
+}
+
+// Legacy quick train (used by old button if needed)
 function startTrainAllModels() {
   const input = prompt('Enter games per model (2-10 players):', '10000')
   if (input) {
@@ -402,6 +571,17 @@ function startTrainAllModels() {
     }
   }
 }
+
+// Calculate total games to train
+const totalGamesToTrain = computed(() => {
+  return modelTrainingConfigs.value
+    .filter(m => m.enabled && m.gamesToTrain > 0)
+    .reduce((sum, m) => sum + m.gamesToTrain, 0)
+})
+
+const enabledModelsCount = computed(() => {
+  return modelTrainingConfigs.value.filter(m => m.enabled && m.gamesToTrain > 0).length
+})
 
 // Multi-model progress computed
 const multiModelProgressPercent = computed(() => {
@@ -427,6 +607,19 @@ const allModelStatuses = computed(() => {
       gamesPlayed: info?.gamesPlayed || 0
     }
   })
+})
+
+// Reactive map of stored games per player count
+const storedGamesMap = computed(() => {
+  // This dependency ensures re-computation when triggered
+  const _trigger = modelStatusRefreshTrigger.value
+
+  const map: Record<number, number> = {}
+  for (let pc = 2; pc <= 10; pc++) {
+    const info = getStoredModelInfo(pc)
+    map[pc] = info?.gamesPlayed || 0
+  }
+  return map
 })
 
 // Player colors for visual distinction
@@ -1146,5 +1339,281 @@ function handleImport(event: Event): void {
   .stat-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* ===== Train All Modal ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.train-all-modal {
+  padding: var(--space-5);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: var(--text-2xl);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--space-1);
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: var(--color-text-primary);
+}
+
+/* Training Mode Section */
+.training-mode-section {
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.mode-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-primary);
+}
+
+.toggle-label {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.mode-description {
+  margin: var(--space-2) 0 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Quick Set Section */
+.quick-set-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.quick-set-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-right: var(--space-1);
+}
+
+.quick-btn {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quick-btn:hover {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.custom-games-input {
+  width: 100px;
+  padding: var(--space-2);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+}
+
+/* Toggle All Section */
+.toggle-all-section {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.toggle-btn {
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toggle-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+/* Model Config List */
+.model-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.model-config-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
+}
+
+.model-config-row.disabled {
+  opacity: 0.5;
+}
+
+.model-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  min-width: 60px;
+}
+
+.model-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+
+.model-label {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.model-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.current-games {
+  color: var(--color-text-secondary);
+}
+
+.arrow {
+  color: var(--color-text-muted);
+}
+
+.target-games {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.games-to-train {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.games-input {
+  width: 80px;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  text-align: right;
+}
+
+.games-input:disabled {
+  opacity: 0.5;
+}
+
+.games-suffix {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* Training Summary */
+.training-summary {
+  display: flex;
+  justify-content: space-around;
+  padding: var(--space-4);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-4);
+}
+
+.summary-item {
+  text-align: center;
+}
+
+.summary-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  display: block;
+}
+
+.summary-value {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* Modal Actions */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
 }
 </style>
