@@ -81,6 +81,12 @@ const lastTimeoutAction = ref<'skip' | 'forfeit' | null>(null)
 const countdownSeconds = ref<number>(0)
 const isInCountdown = ref(false)
 
+// Winner reveal phase (client-only subphase)
+// When true, shows board with winning cells highlighted before transitioning to results
+const isInWinReveal = ref(false)
+let winRevealTimer: NodeJS.Timeout | null = null
+const WIN_REVEAL_DURATION = 4000 // 4 seconds (within 3-5s spec)
+
 // UI state
 const error = ref<string | null>(null)
 const isLoading = ref(false)
@@ -144,6 +150,17 @@ export function useOnlineGame() {
 
   const isGameOver = computed(() => {
     return gameState.value?.winner !== null || gameState.value?.isDraw === true
+  })
+
+  // Check if current player is AI (server handles AI moves with 1-3s delay)
+  const isCurrentPlayerAI = computed(() => {
+    if (!currentPlayer.value) return false
+    return currentPlayer.value.isAI === true
+  })
+
+  // AI is thinking when: game active, current player is AI, game not over
+  const isAIThinking = computed(() => {
+    return isGameActive.value && isCurrentPlayerAI.value && !isGameOver.value
   })
 
   // Time remaining for current turn
@@ -308,13 +325,29 @@ export function useOnlineGame() {
 
   function handleRoundResults(data: RoundResultsPayload): void {
     console.log('[OnlineGame] Round results:', data)
-    roomPhase.value = 'ROUND_RESULTS'
+
+    // Store round results
     lastRoundWinner.value = data.winner
     lastRoundWinnerId.value = data.winnerId
     lastRoundWinnerSymbol.value = data.winnerSymbol
     lastRoundWinningCells.value = data.winningCells
     lastRoundIsDraw.value = data.isDraw
     scoreboard.value = data.scoreboard
+
+    // Start WIN_REVEAL phase (client-only subphase)
+    // Keep showing the board with winning cells highlighted
+    isInWinReveal.value = true
+
+    // Clear any existing timer
+    if (winRevealTimer) {
+      clearTimeout(winRevealTimer)
+    }
+
+    // After reveal duration, transition to results
+    winRevealTimer = setTimeout(() => {
+      isInWinReveal.value = false
+      roomPhase.value = 'ROUND_RESULTS'
+    }, WIN_REVEAL_DURATION)
   }
 
   function handleScoreboardUpdated(data: ScoreboardUpdatedPayload): void {
@@ -611,6 +644,7 @@ export function useOnlineGame() {
     // Countdown
     countdownSeconds,
     isInCountdown,
+    isInWinReveal,
 
     // Computed
     isHost,
@@ -619,6 +653,8 @@ export function useOnlineGame() {
     canStartGame,
     isGameActive,
     isGameOver,
+    isCurrentPlayerAI,
+    isAIThinking,
 
     // UI state
     error,

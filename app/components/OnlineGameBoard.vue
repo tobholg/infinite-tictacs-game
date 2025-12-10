@@ -2,6 +2,8 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { Motion } from '@motionone/vue'
 import { useOnlineGame } from '~/composables/useOnlineGame'
+import { useOnlineSettings } from '~/composables/useOnlineSettings'
+import { useSound } from '~/composables/useSound'
 
 import type { Position, PlayerSymbol, Player } from '../../shared/types'
 
@@ -18,6 +20,7 @@ import HeartIcon from './icons/HeartIcon.vue'
 import PentagonIcon from './icons/PentagonIcon.vue'
 import RefreshIcon from './icons/RefreshIcon.vue'
 import ExitIcon from './icons/ExitIcon.vue'
+import AlertIcon from './icons/AlertIcon.vue'
 
 const emit = defineEmits<{
   backToLobby: []
@@ -37,6 +40,9 @@ const {
   error,
   lastTimeoutPlayerName,
   lastTimeoutAction,
+  isAIThinking,
+  isInWinReveal,
+  lastRoundWinningCells,
   submitMove,
   leaveRoom,
 } = useOnlineGame()
@@ -46,6 +52,29 @@ const boardElement = ref<HTMLElement | null>(null)
 const lastPlacedCell = ref<Position | null>(null)
 const viewportWidth = ref<number>(typeof window !== 'undefined' ? window.innerWidth : 1280)
 const viewportHeight = ref<number>(typeof window !== 'undefined' ? window.innerHeight : 720)
+
+// Online settings (expansion animation and blocked cell effects)
+const { expansionAnimationMode, cantPlaceEffects } = useOnlineSettings()
+
+// Sound effects
+const { play: playSound } = useSound()
+
+// Expansion tracking
+interface ExpandedEdges {
+  top: boolean
+  bottom: boolean
+  left: boolean
+  right: boolean
+}
+
+const prevBoardSize = ref<{ rows: number; cols: number } | null>(null)
+const prevBoardOffset = ref<{ row: number; col: number } | null>(null)
+const expandedEdges = ref<ExpandedEdges>({ top: false, bottom: false, left: false, right: false })
+const isAnimatingExpansion = ref(false)
+const expansionAnimationTimer = ref<NodeJS.Timeout | null>(null)
+
+// Animation duration for expansion effects (400-800ms as per spec)
+const EXPANSION_ANIMATION_DURATION = 600 // ms
 
 const updateViewportSize = () => {
   if (typeof window === 'undefined') return
@@ -104,6 +133,7 @@ const symbolComponents: Record<string, any> = {
 // Computed properties
 const board = computed(() => gameState.value?.board || [])
 const boardSize = computed(() => gameState.value?.boardSize || { rows: 3, cols: 3 })
+const boardOffset = computed(() => gameState.value?.boardOffset || { row: 0, col: 0 })
 const winner = computed(() => gameState.value?.winner || null)
 const winningCells = computed(() => gameState.value?.winningCells || [])
 const isDraw = computed(() => gameState.value?.isDraw || false)
@@ -112,6 +142,17 @@ const gamePlayers = computed(() => gameState.value?.players || [])
 const winLength = computed(() => gameState.value?.rules.winLength || 4)
 
 const isGameOver = computed(() => winner.value !== null || isDraw.value)
+
+// During WIN_REVEAL, board is read-only and showing winner spotlight
+const isInRevealPhase = computed(() => isInWinReveal.value)
+
+// Use lastRoundWinningCells during reveal, otherwise use gameState winningCells
+const revealWinningCells = computed(() => {
+  if (isInRevealPhase.value && lastRoundWinningCells.value.length > 0) {
+    return lastRoundWinningCells.value
+  }
+  return winningCells.value
+})
 
 const timerWarning = computed(() => {
   if (!turnTimeRemaining.value) return false
@@ -122,6 +163,7 @@ const timerWarning = computed(() => {
 const canClickCell = (row: number, col: number): boolean => {
   if (isSpectator.value) return false // Spectators can't click cells
   if (isGameOver.value) return false
+  if (isInRevealPhase.value) return false // Board is read-only during winner reveal
   if (!isMyTurn.value) return false
   if (board.value[row]?.[col] !== '') return false
   if (pendingMove.value) return false // Already submitted a move
@@ -164,7 +206,51 @@ function isAdjacentToFilledCell(row: number, col: number): boolean {
 }
 
 function isWinningCell(row: number, col: number): boolean {
-  return winningCells.value.some(cell => cell.row === row && cell.col === col)
+  // Use revealWinningCells during WIN_REVEAL phase, otherwise use gameState winningCells
+  return revealWinningCells.value.some(cell => cell.row === row && cell.col === col)
+}
+
+// Get the index of this cell in the winning line (for sequential animation)
+function getWinningCellIndex(row: number, col: number): number {
+  return revealWinningCells.value.findIndex(cell => cell.row === row && cell.col === col)
+}
+
+// Check if a cell is part of a newly expanded edge
+function getExpansionEdge(row: number, col: number): 'top' | 'bottom' | 'left' | 'right' | null {
+  if (!isAnimatingExpansion.value) return null
+
+  const currentSize = boardSize.value
+
+  // Check if this is a newly added cell from expansion
+  if (expandedEdges.value.top && row === 0) return 'top'
+  if (expandedEdges.value.bottom && row === currentSize.rows - 1) return 'bottom'
+  if (expandedEdges.value.left && col === 0) return 'left'
+  if (expandedEdges.value.right && col === currentSize.cols - 1) return 'right'
+
+  return null
+}
+
+// Get animation stagger delay for a cell based on its position
+function getExpansionAnimationDelay(row: number, col: number): string {
+  const edge = getExpansionEdge(row, col)
+  if (!edge) return '0ms'
+
+  let index = 0
+  const currentSize = boardSize.value
+
+  switch (edge) {
+    case 'top':
+    case 'bottom':
+      index = col
+      break
+    case 'left':
+    case 'right':
+      index = row
+      break
+  }
+
+  // Stagger delay: 30ms per cell for subtle wave effect
+  return `${index * 30}ms`
 }
 
 function isPendingCell(row: number, col: number): boolean {
@@ -173,10 +259,22 @@ function isPendingCell(row: number, col: number): boolean {
 
 // Handle cell click
 function handleCellClick(row: number, col: number) {
-  if (!canClickCell(row, col)) return
+  if (!canClickCell(row, col)) {
+    // Play invalid move sound if clicking a blocked cell
+    if (board.value[row]?.[col] === '' && !isAdjacentToFilledCell(row, col)) {
+      playSound('invalidMove')
+    }
+    return
+  }
 
-  // Track for animation
-  lastPlacedCell.value = { row, col }
+  // Play piece placed sound
+  playSound('piecePlaced')
+
+  // Track for animation using LOGICAL coordinates (stable across expansion)
+  lastPlacedCell.value = {
+    row: boardOffset.value.row + row,
+    col: boardOffset.value.col + col
+  }
 
   // Submit move to server
   submitMove(row, col)
@@ -230,17 +328,55 @@ function getPlayerChipAnimation(playerSymbol: PlayerSymbol, playerIndex: number)
   }
 }
 
+// Check if cell is blocked (not adjacent to any filled cell)
+function isBlockedCell(row: number, col: number): boolean {
+  if (board.value[row]?.[col] !== '') return false // Already filled
+  if (winner.value || isDraw.value) return false // Game over
+  return !isAdjacentToFilledCell(row, col)
+}
+
 // Get cell CSS classes
 function getCellClasses(row: number, col: number, value: string) {
-  const isJustPlaced = lastPlacedCell.value?.row === row && lastPlacedCell.value?.col === col
+  // Compare using LOGICAL coordinates (offset + view index) for stable animation targeting
+  const logicalRow = boardOffset.value.row + row
+  const logicalCol = boardOffset.value.col + col
+  const isJustPlaced = lastPlacedCell.value?.row === logicalRow && lastPlacedCell.value?.col === logicalCol
+  const expansionEdge = getExpansionEdge(row, col)
+  const isWinner = isWinningCell(row, col)
+  const winIndex = isWinner ? getWinningCellIndex(row, col) : -1
+  const isEmpty = value === ''
+  const gameOver = winner.value || isDraw.value
+  const blocked = isBlockedCell(row, col)
+
   return {
     filled: value !== '',
-    winning: isWinningCell(row, col),
+    winning: isWinner,
     pending: isPendingCell(row, col),
     clickable: canClickCell(row, col),
     'my-turn': isMyTurn.value && !value,
     'just-placed': isJustPlaced,
+    // Expansion animation classes
+    'expansion-new': expansionEdge !== null,
+    [`expansion-${expansionEdge}`]: expansionEdge !== null,
+    [`expansion-mode-${expansionAnimationMode.value}`]: expansionEdge !== null,
+    // Sequential spotlight animation during WIN_REVEAL
+    'win-reveal-spotlight': isInRevealPhase.value && isWinner,
+    [`spotlight-delay-${winIndex}`]: isInRevealPhase.value && isWinner && winIndex >= 0,
+    // Blocked cell appearance (cant-place effects)
+    'disabled': (value !== '' || gameOver) && cantPlaceEffects.value.dimmedCells,
+    'disabled-patterned': isEmpty && gameOver && cantPlaceEffects.value.stripedPattern,
+    'not-playable': blocked && cantPlaceEffects.value.dimmedCells,
+    'not-playable-patterned': blocked && cantPlaceEffects.value.stripedPattern,
   }
+}
+
+// Check if warning icon should be shown for a cell
+function shouldShowWarningIcon(row: number, col: number, value: string): boolean {
+  return cantPlaceEffects.value.warningIcon &&
+    value === '' &&
+    isBlockedCell(row, col) &&
+    !winner.value &&
+    !isDraw.value
 }
 
 // Get symbol component for a cell value
@@ -250,7 +386,10 @@ function getSymbolComponent(value: string) {
 
 // Get motion animation state for a cell
 function getCellMotionState(row: number, col: number, cell: string) {
-  const isJustPlaced = lastPlacedCell.value?.row === row && lastPlacedCell.value?.col === col
+  // Use LOGICAL coordinates for stable comparison across expansion
+  const logicalRow = boardOffset.value.row + row
+  const logicalCol = boardOffset.value.col + col
+  const isJustPlaced = lastPlacedCell.value?.row === logicalRow && lastPlacedCell.value?.col === logicalCol
 
   if (isJustPlaced && cell) {
     return { opacity: 1, scale: 1 }
@@ -285,17 +424,105 @@ onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateViewportSize)
   }
+  // Clear expansion animation timer
+  if (expansionAnimationTimer.value) {
+    clearTimeout(expansionAnimationTimer.value)
+  }
 })
+
+// Watch for board size/offset changes to detect expansion
+watch(
+  () => ({
+    size: gameState.value?.boardSize,
+    offset: gameState.value?.boardOffset,
+  }),
+  (newState, oldState) => {
+    if (!newState.size || !newState.offset) return
+
+    // Initialize previous values if not set
+    if (!prevBoardSize.value || !prevBoardOffset.value) {
+      prevBoardSize.value = { ...newState.size }
+      prevBoardOffset.value = { ...newState.offset }
+      return
+    }
+
+    // Detect which edges expanded
+    // When top/left expands, offset INCREASES (we prepend and shift logical origin)
+    // When bottom/right expands, offset stays same but size increases
+    const newEdges: ExpandedEdges = {
+      top: newState.offset.row > prevBoardOffset.value.row,
+      bottom: newState.size.rows > prevBoardSize.value.rows && newState.offset.row <= prevBoardOffset.value.row,
+      left: newState.offset.col > prevBoardOffset.value.col,
+      right: newState.size.cols > prevBoardSize.value.cols && newState.offset.col <= prevBoardOffset.value.col,
+    }
+
+    const hasExpansion = newEdges.top || newEdges.bottom || newEdges.left || newEdges.right
+
+    if (hasExpansion) {
+      // NOTE: lastPlacedCell uses LOGICAL coordinates now, so no adjustment needed
+      // when board expands - the logical coords stay stable
+
+      // Play board expansion sound
+      playSound('boardExpand')
+
+      // Set expanded edges for animation
+      expandedEdges.value = newEdges
+      isAnimatingExpansion.value = true
+
+      // Clear previous timer
+      if (expansionAnimationTimer.value) {
+        clearTimeout(expansionAnimationTimer.value)
+      }
+
+      // Clear expansion flags after animation
+      expansionAnimationTimer.value = setTimeout(() => {
+        expandedEdges.value = { top: false, bottom: false, left: false, right: false }
+        isAnimatingExpansion.value = false
+      }, EXPANSION_ANIMATION_DURATION)
+    }
+
+    // Update previous values
+    prevBoardSize.value = { ...newState.size }
+    prevBoardOffset.value = { ...newState.offset }
+  },
+  { deep: true }
+)
+
+// Watch for WIN_REVEAL phase to play sequential spotlight sounds
+watch(isInWinReveal, (inReveal) => {
+  if (inReveal && lastRoundWinningCells.value.length > 0) {
+    // Play sequential winReveal sounds for each winning cell
+    lastRoundWinningCells.value.forEach((_, index) => {
+      setTimeout(() => {
+        playSound('winReveal')
+      }, index * 300) // Match the spotlight-delay timing
+    })
+  }
+})
+
+// Watch for turn changes to play sound
+watch(
+  () => gameState.value?.currentPlayerIndex,
+  (newIndex, oldIndex) => {
+    // Only play if turn actually changed (not on initial load)
+    if (oldIndex !== undefined && newIndex !== oldIndex && !isGameOver.value) {
+      playSound('turnChange')
+    }
+  }
+)
 
 // Watch for game state changes and auto-scroll to latest move
 watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   if (latestMove) {
     scrollToCell(latestMove.row, latestMove.col)
-    lastPlacedCell.value = { row: latestMove.row, col: latestMove.col }
+    // Convert to LOGICAL coordinates for stable animation targeting
+    const logicalRow = boardOffset.value.row + latestMove.row
+    const logicalCol = boardOffset.value.col + latestMove.col
+    lastPlacedCell.value = { row: logicalRow, col: logicalCol }
 
     // Clear after animation
     setTimeout(() => {
-      if (lastPlacedCell.value?.row === latestMove.row && lastPlacedCell.value?.col === latestMove.col) {
+      if (lastPlacedCell.value?.row === logicalRow && lastPlacedCell.value?.col === logicalCol) {
         lastPlacedCell.value = null
       }
     }, 900)
@@ -349,7 +576,8 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
           :class="{
             active: currentPlayerIndex === index && !winner,
             winner: winner === player.symbol,
-            'is-me': player.id === myPlayer?.id
+            'is-me': player.id === myPlayer?.id,
+            'ai-thinking': isAIThinking && currentPlayerIndex === index && player.isAI
           }"
           :data-symbol="player.symbol.toLowerCase()"
           :initial="{ opacity: 0, y: 12, scale: 0.92 }"
@@ -360,7 +588,9 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
             <component :is="getSymbolComponent(player.symbol)" :size="26" :stroke-width="4" />
           </span>
           <span class="player-name">{{ player.name }}</span>
-          <div v-if="currentPlayerIndex === index && !winner" class="turn-indicator">
+          <!-- AI Thinking Bubble -->
+          <span v-if="isAIThinking && currentPlayerIndex === index && player.isAI" class="ai-thinking-bubble">...</span>
+          <div v-if="currentPlayerIndex === index && !winner && !(isAIThinking && player.isAI)" class="turn-indicator">
             <span class="turn-indicator-dot"></span>
             <div v-if="turnTimeRemaining" class="timer-display" :class="{ warning: timerWarning }">
               <span class="timer-text">{{ turnTimeRemaining }}s</span>
@@ -381,36 +611,8 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
 
     <!-- Game Board -->
     <div class="board-container">
-      <!-- Results Overlay -->
-      <Motion
-        v-if="isGameOver"
-        class="game-info-overlay"
-        :initial="{ opacity: 0, scale: 0.9, y: 24 }"
-        :animate="{ opacity: 1, scale: 1, y: 0 }"
-        :transition="{ duration: 0.55, easing: livelySpringEasing }"
-      >
-        <div v-if="winner" class="game-result victory">
-          <span class="victory-text">
-            {{ gamePlayers.find(p => p.symbol === winner)?.name }} wins!
-            <br />
-            {{ winLength }} in a row
-          </span>
-        </div>
-        <div v-else class="game-result draw">
-          <span class="draw-text">It's a Draw!</span>
-        </div>
-        <div class="game-end-actions">
-          <Motion
-            tag="button"
-            @click="handleLeave"
-            class="action-button secondary"
-            :transition="{ duration: 0.25, easing: livelySpringEasing }"
-          >
-            <ExitIcon class="button-icon" :size="18" />
-            <span>Leave Game</span>
-          </Motion>
-        </div>
-      </Motion>
+      <!-- NOTE: Results overlay removed - WIN_REVEAL phase shows winning animation,
+           then transitions to OnlineResults.vue for winner display and actions -->
 
       <!-- Board Grid -->
       <div
@@ -423,13 +625,14 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
           gridTemplateRows: `repeat(${boardSize.rows}, ${cellSize}px)`
         }"
       >
-        <template v-for="(row, rowIndex) in board" :key="`row-${rowIndex}`">
+        <template v-for="(row, rowIndex) in board" :key="`row-${boardOffset.row + rowIndex}`">
           <Motion
             v-for="(cell, colIndex) in row"
-            :key="`cell-${rowIndex}-${colIndex}`"
+            :key="`cell-${boardOffset.row + rowIndex}-${boardOffset.col + colIndex}`"
             tag="button"
             class="cell"
             :class="getCellClasses(rowIndex, colIndex, cell)"
+            :style="{ '--expansion-delay': getExpansionAnimationDelay(rowIndex, colIndex) }"
             :data-symbol="cell ? cell.toLowerCase() : undefined"
             :disabled="!canClickCell(rowIndex, colIndex)"
             @click="handleCellClick(rowIndex, colIndex)"
@@ -437,6 +640,10 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
             :animate="getCellMotionState(rowIndex, colIndex, cell)"
             :transition="{ duration: 0.3, easing: livelySpringEasing }"
           >
+            <!-- Warning icon for blocked cells -->
+            <div v-if="shouldShowWarningIcon(rowIndex, colIndex, cell)" class="not-playable-indicator" title="Not playable - Place moves adjacent to existing pieces">
+              <AlertIcon :size="16" color="rgba(251, 191, 36, 0.7)" :stroke-width="2" />
+            </div>
             <component
               v-if="cell"
               :is="getSymbolComponent(cell)"
@@ -622,6 +829,45 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   background: rgba(0, 217, 255, 0.12);
   box-shadow: 0 10px 24px rgba(0, 217, 255, 0.28);
   animation: playerChipPulse 2s ease-in-out infinite;
+}
+
+/* AI Thinking State - gentle board-game feel pulse */
+.player-chip.ai-thinking {
+  border-color: rgba(139, 92, 246, 0.6);
+  background: rgba(139, 92, 246, 0.15);
+  animation: aiThinkingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes aiThinkingPulse {
+  0%, 100% {
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.25);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35);
+    transform: scale(1.02);
+  }
+}
+
+/* AI Thinking Bubble */
+.ai-thinking-bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #c4b5fd;
+  letter-spacing: 2px;
+  animation: thinkingBubblePulse 1s ease-in-out infinite;
+}
+
+@keyframes thinkingBubblePulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 .player-chip.winner {
@@ -860,6 +1106,67 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   animation: winPulse 1s infinite;
 }
 
+/* ============================================================================
+   WIN_REVEAL Sequential Spotlight Animation
+   Cells flash one-by-one along the winning line, then hold all highlighted
+   ============================================================================ */
+
+.cell.win-reveal-spotlight {
+  /* Override regular winning animation */
+  animation: none;
+  /* Start with base winning state, spotlight animation will enhance */
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--color-success);
+}
+
+/* Sequential spotlight with staggered delays (0-3 for 4 cells) */
+.cell.win-reveal-spotlight.spotlight-delay-0 {
+  animation: spotlightFlash 3s ease-out forwards;
+  animation-delay: 0ms;
+}
+.cell.win-reveal-spotlight.spotlight-delay-1 {
+  animation: spotlightFlash 3s ease-out forwards;
+  animation-delay: 300ms;
+}
+.cell.win-reveal-spotlight.spotlight-delay-2 {
+  animation: spotlightFlash 3s ease-out forwards;
+  animation-delay: 600ms;
+}
+.cell.win-reveal-spotlight.spotlight-delay-3 {
+  animation: spotlightFlash 3s ease-out forwards;
+  animation-delay: 900ms;
+}
+
+@keyframes spotlightFlash {
+  0% {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: var(--color-success);
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+    transform: scale(1);
+  }
+  /* Flash in - dramatic highlight */
+  10% {
+    background: rgba(250, 204, 21, 0.4);
+    border-color: #fcd34d;
+    box-shadow: 0 0 40px rgba(250, 204, 21, 0.6), 0 0 60px rgba(250, 204, 21, 0.3);
+    transform: scale(1.12);
+  }
+  /* Settle back slightly but stay bright */
+  25% {
+    background: rgba(250, 204, 21, 0.25);
+    border-color: #fcd34d;
+    box-shadow: 0 0 25px rgba(250, 204, 21, 0.4);
+    transform: scale(1.05);
+  }
+  /* Hold highlighted state */
+  100% {
+    background: rgba(34, 197, 94, 0.25);
+    border-color: var(--color-success);
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4), 0 0 40px rgba(34, 197, 94, 0.2);
+    transform: scale(1.03);
+  }
+}
+
 .cell.pending {
   background: rgba(99, 102, 241, 0.1);
   border-style: dashed;
@@ -889,6 +1196,201 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   50% { box-shadow: 0 0 30px rgba(34, 197, 94, 0.5); }
 }
 
+/* ============================================================================
+   Blocked Cell Styles (Cant-Place Effects)
+   ============================================================================ */
+
+/* Disabled cells - lower opacity */
+.cell.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Disabled cells with striped pattern */
+.cell.disabled-patterned {
+  cursor: not-allowed;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 5px,
+      rgba(71, 85, 105, 0.3) 5px,
+      rgba(71, 85, 105, 0.3) 10px
+    );
+}
+
+/* Not playable cells (not adjacent to filled) - dimmed */
+.cell.not-playable {
+  background: rgba(10, 15, 30, 0.65);
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-color: rgba(71, 85, 105, 0.25);
+}
+
+/* Not playable cells with striped pattern */
+.cell.not-playable-patterned {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.3),
+      rgba(0, 0, 0, 0.3) 5px,
+      rgba(71, 85, 105, 0.3) 5px,
+      rgba(71, 85, 105, 0.3) 10px
+    );
+  cursor: not-allowed;
+  border-color: rgba(71, 85, 105, 0.25);
+}
+
+/* Prevent hover effects on blocked cells */
+.cell.not-playable:hover,
+.cell.not-playable-patterned:hover {
+  transform: none;
+  border-color: rgba(71, 85, 105, 0.25);
+}
+
+/* Warning indicator for blocked cells */
+.not-playable-indicator {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  pointer-events: auto;
+  cursor: help;
+  padding: 3px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================================
+   Expansion Animations (Online Only)
+   Option A: Slide Out (default) - new rows/cols slide in from edges
+   Option B: Pop In - new tiles pop in with gentle settle
+   Option C: Stretch Settle - board stretches and settles
+   ============================================================================ */
+
+/* Base styles for new expansion cells */
+.cell.expansion-new {
+  animation-delay: var(--expansion-delay, 0ms);
+  animation-fill-mode: both;
+}
+
+/* --------------------------------------------------------------------------
+   Option A: Slide Out (Default)
+   New rows slide down/up, new columns slide left/right with fade
+   -------------------------------------------------------------------------- */
+.cell.expansion-mode-A_slideOut.expansion-top {
+  animation: slideFromTop 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cell.expansion-mode-A_slideOut.expansion-bottom {
+  animation: slideFromBottom 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cell.expansion-mode-A_slideOut.expansion-left {
+  animation: slideFromLeft 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cell.expansion-mode-A_slideOut.expansion-right {
+  animation: slideFromRight 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes slideFromTop {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideFromBottom {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideFromLeft {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideFromRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Option B: Pop In Tiles
+   New tiles scale from 0.85 to 1.0 with gentle overshoot settle
+   -------------------------------------------------------------------------- */
+.cell.expansion-mode-B_popInTiles.expansion-new {
+  animation: popInTile 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popInTile {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Option C: Stretch + Settle
+   Cells fade in with subtle scale, board stretches via container animation
+   -------------------------------------------------------------------------- */
+.cell.expansion-mode-C_stretchSettle.expansion-new {
+  animation: stretchFadeIn 0.5s ease-out;
+}
+
+@keyframes stretchFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Board stretch animation for Option C */
+.board:has(.expansion-mode-C_stretchSettle.expansion-new) {
+  animation: boardStretch 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes boardStretch {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
 .cell-icon {
   display: grid;
   place-items: center;
@@ -904,67 +1406,6 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
-}
-
-/* Results Overlay */
-.game-info-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
-  z-index: 10;
-  gap: var(--space-6);
-}
-
-.game-result {
-  text-align: center;
-}
-
-.victory-text {
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  color: #fcd34d;
-  text-shadow: 0 0 30px rgba(250, 204, 21, 0.5);
-}
-
-.draw-text {
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.game-end-actions {
-  display: flex;
-  gap: var(--space-4);
-}
-
-.action-button {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-5);
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  border: none;
-  border-radius: var(--radius-md);
-  color: white;
-  font-size: var(--text-base);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.action-button.secondary {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-}
-
-.action-button:hover {
-  transform: translateY(-2px);
 }
 
 /* Action Bar */

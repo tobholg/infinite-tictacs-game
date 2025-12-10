@@ -9,7 +9,8 @@
           class="player-chip"
         :class="{
           active: currentPlayerIndex === index && !winner,
-          winner: winner === player.symbol
+          winner: winner === player.symbol,
+          'ai-thinking': isAIThinking && currentPlayerIndex === index && player.isAI
         }"
         :data-symbol="player.symbol.toLowerCase()"
         :initial="{ opacity: 0, y: 12, scale: 0.92 }"
@@ -29,7 +30,9 @@
           <PentagonIcon v-else-if="player.symbol === 'Pentagon'" :size="26" :stroke-width="4" />
         </span>
         <span class="player-name">{{ player.name }}</span>
-        <div class="turn-indicator" v-if="currentPlayerIndex === index && !winner">
+        <!-- AI Thinking Bubble -->
+        <span v-if="isAIThinking && currentPlayerIndex === index && player.isAI" class="ai-thinking-bubble">...</span>
+        <div class="turn-indicator" v-if="currentPlayerIndex === index && !winner && !(isAIThinking && player.isAI)">
           <span class="turn-indicator-dot"></span>
           <div v-if="hasTimeLimitRule && isTimerActive" class="timer-display" :class="{ warning: timerWarning }">
             <div class="timer-circle">
@@ -1086,8 +1089,9 @@ async function triggerAIMoveIfNeeded() {
 
   isAIThinking.value = true
 
-  // Small delay to make it feel like the AI is "thinking"
-  await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400))
+  // Random 1-3 second delay for natural board-game feel
+  const thinkingDelay = 1000 + Math.random() * 2000
+  await new Promise(resolve => setTimeout(resolve, thinkingDelay))
 
   try {
     // Convert board to Q-Learning format
@@ -1426,6 +1430,9 @@ const resetGame = async () => {
   clearTimer()
   timeLeft.value = 0
 
+  // Reset AI thinking state
+  isAIThinking.value = false
+
   // Reset move history
   moveHistory.value = []
   moveCounter.value = 0
@@ -1622,6 +1629,45 @@ defineExpose({
   background: rgba(0, 217, 255, 0.12);
   box-shadow: 0 10px 24px rgba(0, 217, 255, 0.28);
   animation: playerChipPulse 2s ease-in-out infinite;
+}
+
+/* AI Thinking State - gentle board-game feel pulse */
+.player-chip.ai-thinking {
+  border-color: rgba(139, 92, 246, 0.6);
+  background: rgba(139, 92, 246, 0.15);
+  animation: aiThinkingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes aiThinkingPulse {
+  0%, 100% {
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.25);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35);
+    transform: scale(1.02);
+  }
+}
+
+/* AI Thinking Bubble */
+.ai-thinking-bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #c4b5fd;
+  letter-spacing: 2px;
+  animation: thinkingBubblePulse 1s ease-in-out infinite;
+}
+
+@keyframes thinkingBubblePulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 .player-chip.winner {

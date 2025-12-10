@@ -3,6 +3,13 @@
     <!-- Stage: Mode Selection -->
     <Transition name="slide-fade" mode="out-in">
       <div v-if="stage === 'mode-select'" key="mode-select" class="stage-content">
+        <!-- Sound button only on main menu -->
+        <div class="stage-header justify-end">
+          <button class="settings-btn" @click="showSoundSettings = true">
+            <span>🔊</span>
+            <span>Sound</span>
+          </button>
+        </div>
         <section class="config-section mode-select-section">
           <div class="section-header centered">
             <h2 class="section-title large">How do you want to play?</h2>
@@ -30,10 +37,16 @@
             <span>&larr;</span>
             <span>Back</span>
           </button>
-          <button class="settings-btn" @click="showSettings = true">
-            <span>⚙️</span>
-            <span>Settings</span>
-          </button>
+          <div class="header-actions">
+            <button class="settings-btn" @click="showSoundSettings = true">
+              <span>🔊</span>
+              <span>Sound</span>
+            </button>
+            <button class="settings-btn" @click="showSettings = true">
+              <span>⚙️</span>
+              <span>Settings</span>
+            </button>
+          </div>
         </div>
 
         <!-- Game Mode -->
@@ -152,11 +165,15 @@
 
       <!-- Stage: Online Selection -->
       <div v-else-if="stage === 'online-select'" key="online-select" class="stage-content">
-        <!-- Header with Back -->
+        <!-- Header with Back and Sound -->
         <div class="stage-header">
           <button class="back-btn" @click="goBack">
             <span>&larr;</span>
             <span>Back</span>
+          </button>
+          <button class="settings-btn" @click="showSoundSettings = true">
+            <span>🔊</span>
+            <span>Sound</span>
           </button>
         </div>
 
@@ -170,7 +187,7 @@
               <span class="mode-label">Host Game</span>
               <span class="mode-desc">Create a room and invite friends</span>
             </button>
-            <button class="mode-card" @click="joinFormExpanded = true" :class="{ expanded: joinFormExpanded }">
+            <button class="mode-card" @click="handleJoinGameClick" :class="{ expanded: joinFormExpanded }">
               <span class="mode-icon">🔗</span>
               <span class="mode-label">Join Game</span>
               <span class="mode-desc">Enter a room code to join</span>
@@ -227,16 +244,22 @@
 
       <!-- Stage: Host Setup -->
       <div v-else-if="stage === 'host-setup'" key="host-setup" class="stage-content">
-        <!-- Header with Back and Settings -->
+        <!-- Header with Back, Sound, and Settings -->
         <div class="stage-header">
           <button class="back-btn" @click="goBack">
             <span>&larr;</span>
             <span>Back</span>
           </button>
-          <button class="settings-btn" @click="showSettings = true">
-            <span>⚙️</span>
-            <span>Settings</span>
-          </button>
+          <div class="header-actions">
+            <button class="settings-btn" @click="showSoundSettings = true">
+              <span>🔊</span>
+              <span>Sound</span>
+            </button>
+            <button class="settings-btn" @click="showOnlineSettings = true">
+              <span>⚙️</span>
+              <span>Settings</span>
+            </button>
+          </div>
         </div>
 
         <section class="config-section">
@@ -302,12 +325,24 @@
       </div>
     </Transition>
 
-    <!-- Settings Modal -->
+    <!-- Local Settings Modal -->
     <SettingsModal
       :is-open="showSettings"
       :cant-place-effects="cantPlaceEffects"
       @close="showSettings = false"
       @update:cant-place-effects="cantPlaceEffects = $event"
+    />
+
+    <!-- Online Settings Modal -->
+    <OnlineSettingsPopup
+      :is-open="showOnlineSettings"
+      @close="showOnlineSettings = false"
+    />
+
+    <!-- Sound Settings Modal -->
+    <SoundSettingsPopup
+      :is-open="showSoundSettings"
+      @close="showSoundSettings = false"
     />
   </div>
 </template>
@@ -316,7 +351,10 @@
 import { ref, computed, watch } from 'vue'
 import CharacterPicker from './CharacterPicker.vue'
 import SettingsModal from './SettingsModal.vue'
+import OnlineSettingsPopup from './OnlineSettingsPopup.vue'
+import SoundSettingsPopup from './SoundSettingsPopup.vue'
 import { useQLearning, type AIDifficulty } from '~/composables/useQLearning'
+import { useSound } from '~/composables/useSound'
 
 interface GamePreset {
   id: string
@@ -364,6 +402,9 @@ export interface OnlineHostSettings {
 // Get AI model info
 const { getStoredModelInfo } = useQLearning()
 
+// Sound effects
+const { play: playSound } = useSound()
+
 const emit = defineEmits<{
   startGame: [settings: GameSettings]
   createRoom: [settings: OnlineHostSettings]
@@ -374,8 +415,10 @@ const emit = defineEmits<{
 type Stage = 'mode-select' | 'local-setup' | 'online-select' | 'host-setup'
 const stage = ref<Stage>('mode-select')
 
-// Settings modal
-const showSettings = ref(false)
+// Settings modals
+const showSettings = ref(false) // Local settings
+const showOnlineSettings = ref(false) // Online settings
+const showSoundSettings = ref(false) // Sound settings
 
 // Game configuration
 const selectedMode = ref<'classic'>('classic')
@@ -437,20 +480,29 @@ const hostName = ref('')
 
 // Stage navigation
 function selectLocalMode() {
+  playSound('buttonClick')
   resetLocalState()
   stage.value = 'local-setup'
 }
 
 function selectOnlineMode() {
+  playSound('buttonClick')
   resetOnlineState()
   stage.value = 'online-select'
 }
 
 function selectHostMode() {
+  playSound('buttonClick')
   stage.value = 'host-setup'
 }
 
+function handleJoinGameClick() {
+  playSound('buttonClick')
+  joinFormExpanded.value = true
+}
+
 function goBack() {
+  playSound('buttonClick')
   if (stage.value === 'local-setup' || stage.value === 'online-select') {
     stage.value = 'mode-select'
   } else if (stage.value === 'host-setup') {
@@ -518,6 +570,7 @@ const getRuleLabel = (ruleId: string) => {
 }
 
 const selectPreset = (preset: GamePreset) => {
+  playSound('buttonClick')
   selectedMode.value = preset.gameMode
   selectedRules.value = [...preset.rules]
   if (preset.timeLimit) {
@@ -564,6 +617,7 @@ const removePlayer = (index: number) => {
 // Actions
 const handleStartGame = () => {
   if (activePlayers.value.length >= 2) {
+    playSound('buttonClick')
     const settings: GameSettings = {
       players: [...activePlayers.value],
       gameMode: selectedMode.value,
@@ -577,6 +631,7 @@ const handleStartGame = () => {
 
 const handleCreateRoom = () => {
   if (hostName.value.trim() && selectedMode.value) {
+    playSound('buttonClick')
     const settings: OnlineHostSettings = {
       hostName: hostName.value.trim(),
       gameMode: selectedMode.value,
@@ -590,6 +645,7 @@ const handleCreateRoom = () => {
 
 const handleJoinRoom = () => {
   if (joinName.value.trim() && joinCode.value.trim()) {
+    playSound('buttonClick')
     emit('joinRoom', joinCode.value.trim().toUpperCase(), joinName.value.trim(), joinAsSpectator.value)
   }
 }
@@ -617,6 +673,16 @@ const handleJoinRoom = () => {
   align-items: center;
   gap: var(--space-3);
   margin-bottom: var(--space-2);
+}
+
+.stage-header.justify-end {
+  justify-content: flex-end;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .back-btn {

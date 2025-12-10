@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Motion } from '@motionone/vue'
 import { useOnlineGame } from '~/composables/useOnlineGame'
+import { useSound } from '~/composables/useSound'
 import type { AIDifficulty } from '../../shared/types'
 
 // Components
@@ -50,8 +51,12 @@ const {
   removeAI,
 } = useOnlineGame()
 
+// Sound effects
+const { play: playSound } = useSound()
+
 // Local UI state
 const codeCopied = ref(false)
+const prevPlayerCount = ref(0)
 
 // AI player settings
 const aiName = ref('')
@@ -78,6 +83,37 @@ const livelySpringEasing = 'cubic-bezier(0.22, 1, 0.36, 1)'
 // Lifecycle
 onMounted(() => {
   initialize()
+  // Initialize player count tracking
+  prevPlayerCount.value = activePlayers.value.length
+})
+
+// Watch for player joins/leaves and play sounds
+watch(
+  () => activePlayers.value.length,
+  (newCount, oldCount) => {
+    // Skip initial and invalid values
+    if (oldCount === undefined || oldCount === 0) {
+      prevPlayerCount.value = newCount
+      return
+    }
+
+    if (newCount > oldCount) {
+      // Player joined
+      playSound('playerJoin')
+    } else if (newCount < oldCount) {
+      // Player left
+      playSound('playerLeave')
+    }
+
+    prevPlayerCount.value = newCount
+  }
+)
+
+// Watch countdown and play tick sounds
+watch(countdownSeconds, (seconds) => {
+  if (seconds !== null && seconds > 0 && seconds <= 3) {
+    playSound('countdown')
+  }
 })
 
 // Actions

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Motion } from '@motionone/vue'
 import { useOnlineGame } from '~/composables/useOnlineGame'
+import { useSound } from '~/composables/useSound'
 
 // Icon Components
 import XIcon from './icons/XIcon.vue'
@@ -29,9 +30,16 @@ const {
   lastRoundWinnerId,
   lastRoundWinnerSymbol,
   lastRoundIsDraw,
+  roomPhase,
   startGame,
   leaveRoom,
 } = useOnlineGame()
+
+// Sound effects
+const { play: playSound } = useSound()
+
+// Local UI state for rematch button feedback
+const isStartingNextRound = ref(false)
 
 // Symbol components map
 const symbolComponents: Record<string, any> = {
@@ -60,14 +68,38 @@ const sortedPlayers = computed(() => {
 })
 
 const isWinner = computed(() => lastRoundWinnerId.value === myPlayer.value?.id)
+const isLoser = computed(() => !lastRoundIsDraw.value && lastRoundWinnerId.value && lastRoundWinnerId.value !== myPlayer.value?.id)
+
+// Play result sound when component mounts
+onMounted(() => {
+  // Small delay to let WIN_REVEAL sounds finish
+  setTimeout(() => {
+    if (lastRoundIsDraw.value) {
+      playSound('gameDraw')
+    } else if (isWinner.value) {
+      playSound('gameWin')
+    } else if (isLoser.value) {
+      playSound('gameLose')
+    }
+  }, 200)
+})
 
 // Get symbol component
 function getSymbolComponent(symbol: string) {
   return symbolComponents[symbol] || XIcon
 }
 
+// Reset isStartingNextRound when countdown phase starts
+watch(roomPhase, (newPhase) => {
+  if (newPhase === 'COUNTDOWN') {
+    isStartingNextRound.value = false
+  }
+})
+
 // Actions
 function handlePlayAgain() {
+  if (isStartingNextRound.value) return // Prevent double clicks
+  isStartingNextRound.value = true
   startGame()
 }
 
@@ -143,8 +175,14 @@ function handleLeave() {
       :transition="{ duration: 0.5, delay: 0.5, easing: livelySpringEasing }"
       class="actions-section"
     >
-      <button v-if="isHost" class="primary-btn" @click="handlePlayAgain">
-        Play Again
+      <button
+        v-if="isHost"
+        class="primary-btn"
+        :class="{ 'is-starting': isStartingNextRound }"
+        :disabled="isStartingNextRound"
+        @click="handlePlayAgain"
+      >
+        {{ isStartingNextRound ? 'Resetting...' : 'Play Again' }}
       </button>
       <p v-else class="waiting-text">
         Waiting for host to start next round...
@@ -383,9 +421,20 @@ function handleLeave() {
   transition: all 0.2s ease;
 }
 
-.primary-btn:hover {
+.primary-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+}
+
+.primary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.primary-btn.is-starting {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.7), rgba(79, 70, 229, 0.7));
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .secondary-btn {

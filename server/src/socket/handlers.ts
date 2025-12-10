@@ -617,9 +617,9 @@ function startGame(io: TypedServer, roomStore: RoomStore, roomCode: string): voi
   processAITurnIfNeeded(io, roomStore, roomCode)
 }
 
-// AI thinking delay range (in ms)
-const AI_THINKING_DELAY_MIN = 500
-const AI_THINKING_DELAY_MAX = 1500
+// AI thinking delay range (in ms) - 1-3 seconds for natural board-game feel
+const AI_THINKING_DELAY_MIN = 1000
+const AI_THINKING_DELAY_MAX = 3000
 
 /**
  * Check if current player is AI and process their turn

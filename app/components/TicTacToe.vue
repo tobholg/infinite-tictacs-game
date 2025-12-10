@@ -137,8 +137,10 @@ const onlineGame = useOnlineGame()
 
 // Computed for online routing
 const onlinePhase = computed(() => onlineGame.roomPhase.value)
-const isOnlineGameActive = computed(() => onlinePhase.value === 'ROUND_ACTIVE')
-const isOnlineResults = computed(() => onlinePhase.value === 'ROUND_RESULTS')
+const isInWinReveal = computed(() => onlineGame.isInWinReveal.value)
+// Show board during active play OR during win reveal (showing winning cells before results)
+const isOnlineGameActive = computed(() => onlinePhase.value === 'ROUND_ACTIVE' || isInWinReveal.value)
+const isOnlineResults = computed(() => onlinePhase.value === 'ROUND_RESULTS' && !isInWinReveal.value)
 const isOnlineLobbyOrCountdown = computed(() =>
   onlinePhase.value === 'LOBBY' || onlinePhase.value === 'COUNTDOWN'
 )
