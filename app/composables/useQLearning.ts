@@ -182,9 +182,80 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
     return `${STORAGE_KEY_PREFIX}${playerCount}p`
   }
 
+  /**
+   * Prune Q-table to reduce size by removing entries with low visit counts
+   */
+  function pruneQTable(targetSize: number): void {
+    if (qTable.value.size <= targetSize) return
+
+    console.log(`[Q-Learning] Pruning Q-table from ${qTable.value.size} to ~${targetSize} entries...`)
+
+    // Convert to array and sort by visits (ascending - least visited first)
+    const entries = Array.from(qTable.value.entries())
+      .map(([key, value]) => ({ key, value }))
+      .sort((a, b) => a.value.visits - b.value.visits)
+
+    // Remove entries with lowest visit counts until we reach target size
+    const entriesToRemove = entries.length - targetSize
+    for (let i = 0; i < entriesToRemove; i++) {
+      qTable.value.delete(entries[i].key)
+    }
+
+    stats.value.qTableSize = qTable.value.size
+    console.log(`[Q-Learning] Pruned to ${qTable.value.size} entries`)
+  }
+
+  /**
+   * Clear other models' storage to free up space
+   */
+  function clearOtherModelsStorage(exceptPlayerCount: number): void {
+    console.log(`[Q-Learning] Clearing other models to free localStorage space...`)
+    for (let pc = 2; pc <= 10; pc++) {
+      if (pc !== exceptPlayerCount) {
+        const key = getStorageKey(pc)
+        const data = localStorage.getItem(key)
+        if (data) {
+          console.log(`[Q-Learning] Removing ${pc}p model (${(data.length / 1024).toFixed(1)}KB)`)
+          localStorage.removeItem(key)
+        }
+      }
+    }
+  }
+
   function saveModelToStorage(): void {
     if (typeof window === 'undefined') return
     const key = getStorageKey(config.value.playerCount)
+
+    // First attempt: try to save as-is
+    let saveSuccessful = attemptSave(key)
+
+    // If failed due to quota, try pruning the Q-table
+    if (!saveSuccessful && qTable.value.size > 50000) {
+      console.log(`[Q-Learning] ⚠️ Quota exceeded, pruning Q-table...`)
+      pruneQTable(50000) // Keep top 50k most-visited states
+      saveSuccessful = attemptSave(key)
+    }
+
+    // If still failing, prune more aggressively
+    if (!saveSuccessful && qTable.value.size > 20000) {
+      console.log(`[Q-Learning] ⚠️ Still over quota, pruning more aggressively...`)
+      pruneQTable(20000)
+      saveSuccessful = attemptSave(key)
+    }
+
+    // Last resort: clear other models and try again
+    if (!saveSuccessful) {
+      console.log(`[Q-Learning] ⚠️ Still over quota, clearing other models...`)
+      clearOtherModelsStorage(config.value.playerCount)
+      saveSuccessful = attemptSave(key)
+    }
+
+    if (!saveSuccessful) {
+      console.error(`[Q-Learning] ❌ Could not save model even after pruning. Consider exporting to file.`)
+    }
+  }
+
+  function attemptSave(key: string): boolean {
     const model: SavedModel = {
       qTable: Array.from(qTable.value.entries()),
       stats: stats.value,
@@ -194,13 +265,25 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
     try {
       const jsonStr = JSON.stringify(model)
       localStorage.setItem(key, jsonStr)
-      console.log(`[Q-Learning] Saved ${config.value.playerCount}p model: ${stats.value.gamesPlayed} games, ${qTable.value.size} states, ${(jsonStr.length / 1024).toFixed(1)}KB`)
-    } catch (e) {
-      console.error('Failed to save model to localStorage:', e)
-      // Check if it's a quota exceeded error
-      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-        console.error('[Q-Learning] localStorage quota exceeded! Model too large to save.')
+      console.log(`[Q-Learning] ✅ SAVED ${config.value.playerCount}p model: ${stats.value.gamesPlayed} games, ${qTable.value.size} states, ${(jsonStr.length / 1024).toFixed(1)}KB`)
+
+      // Verify save was successful
+      const verifyData = localStorage.getItem(key)
+      if (verifyData) {
+        const verifyModel: SavedModel = JSON.parse(verifyData)
+        console.log(`[Q-Learning] ✅ VERIFIED ${config.value.playerCount}p model in localStorage: ${verifyModel.stats.gamesPlayed} games`)
+        return true
+      } else {
+        console.error(`[Q-Learning] ❌ VERIFICATION FAILED - data not found after save!`)
+        return false
       }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+        console.warn(`[Q-Learning] ⚠️ localStorage quota exceeded (${qTable.value.size} states)`)
+        return false
+      }
+      console.error('[Q-Learning] ❌ Failed to save model to localStorage:', e)
+      return false
     }
   }
 
@@ -211,7 +294,7 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
     try {
       const data = localStorage.getItem(key)
       if (!data) {
-        console.log(`[Q-Learning] No saved model found for ${count}p`)
+        console.log(`[Q-Learning] ⚠️ No saved model found for ${count}p (key: ${key})`)
         return false
       }
       const model: SavedModel = JSON.parse(data)
@@ -219,10 +302,10 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
       stats.value = { ...stats.value, ...model.stats }
       config.value = { ...config.value, ...model.config }
       stats.value.qTableSize = qTable.value.size
-      console.log(`[Q-Learning] Loaded ${count}p model: ${stats.value.gamesPlayed} games, ${qTable.value.size} states`)
+      console.log(`[Q-Learning] ✅ LOADED ${count}p model: ${stats.value.gamesPlayed} games, ${qTable.value.size} states (saved: ${model.savedAt})`)
       return true
     } catch (e) {
-      console.error('Failed to load model from localStorage:', e)
+      console.error(`[Q-Learning] ❌ Failed to load model from localStorage (key: ${key}):`, e)
       return false
     }
   }
@@ -268,6 +351,19 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
     }
 
     currentGame.value = createInitialGameState()
+  }
+
+  /**
+   * Ensure the correct model is loaded for gameplay (without saving current state)
+   * Use this before getting AI moves to ensure fresh model from localStorage
+   */
+  function ensureModelLoaded(playerCount: number): void {
+    const targetCount = Math.max(2, Math.min(10, playerCount))
+
+    // Always reload from localStorage to get the latest trained model
+    config.value.playerCount = targetCount
+    loadModelFromStorage(targetCount)
+    console.log(`[Q-Learning] Ensured ${targetCount}p model loaded: ${stats.value.gamesPlayed} games, ${qTable.value.size} states`)
   }
 
   function setParallelGames(count: number) {
@@ -1673,6 +1769,7 @@ export function useQLearning(initialConfig: Partial<TrainingConfig> = {}) {
     resetTraining,
     setPlayerCount,
     setParallelGames,
+    ensureModelLoaded,
     getAIMove,
     getActivePlayers,
     multiModelProgress,

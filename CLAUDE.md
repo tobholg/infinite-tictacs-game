@@ -22,12 +22,79 @@ npm run preview
 npm run generate
 ```
 
+## Quick Start: Running the Full Game
+
+The game has two parts:
+1. **Frontend** (Nuxt app) - runs on port 3001
+2. **Multiplayer Server** (Socket.IO) - runs on port 3002
+
+### Local Development (Computer Only)
+
+**Terminal 1 - Start the frontend:**
+```bash
+cd /path/to/infinite-tictacs-game
+source ~/.nvm/nvm.sh && nvm use && npm run dev
+```
+
+**Terminal 2 - Start the multiplayer server:**
+```bash
+cd /path/to/infinite-tictacs-game/server
+npm run dev
+```
+
+Then open http://localhost:3001 in your browser.
+
+### Testing on Phone (Cross-Play)
+
+To test on your phone or enable cross-play between devices:
+
+**Terminal 1 - Start frontend with network access:**
+```bash
+cd /path/to/infinite-tictacs-game
+source ~/.nvm/nvm.sh && nvm use && npm run dev -- --host
+```
+
+**Terminal 2 - Start multiplayer server:**
+```bash
+cd /path/to/infinite-tictacs-game/server
+npm run dev
+```
+
+**Find your local IP:**
+```bash
+# Mac
+ipconfig getifaddr en0
+
+# Linux
+hostname -I | awk '{print $1}'
+
+# Windows
+ipconfig | findstr IPv4
+```
+
+**On your phone:**
+1. Connect to the same WiFi network as your computer
+2. Open browser and go to: `http://<YOUR_IP>:3001`
+   - Example: `http://192.168.1.100:3001`
+
+**Cross-play setup:**
+1. Computer: Open `http://localhost:3001` → Create Online Game → Create Room
+2. Phone: Open `http://<YOUR_IP>:3001` → Create Online Game → Join Room (enter code)
+
+### Mobile Touch Controls
+
+On mobile devices:
+- **Tap** a cell to select it (cyan highlight)
+- **Tap selected cell** or **double-tap** to place piece
+- **Pinch** to zoom in/out (0.5x - 3x)
+- **Drag** to pan around when zoomed
+
 ## Architecture
 
 ### Application Structure
 
 ```
-app/
+app/                           # Frontend (Nuxt/Vue)
 ├── app.vue                    # Entry point - renders SnowEffect + TicTacToe
 ├── assets/styles/
 │   └── design-system.css      # CSS variables, themes, and global styles
@@ -35,20 +102,36 @@ app/
 │   ├── TicTacToe.vue          # Main game shell with start menu/game board transitions
 │   ├── StartMenu.vue          # Game configuration (players, modes, rules, settings)
 │   ├── GameBoard.vue          # Core game logic, board rendering, win detection
+│   ├── OnlineGameBoard.vue    # Online multiplayer game board
+│   ├── OnlineLobby.vue        # Online game lobby and room management
+│   ├── PlayerTurnBar.vue      # Minimalistic player turn indicator
 │   ├── CharacterPicker.vue    # Player symbol selection component
 │   ├── GameModeCatalog.vue    # Browse available game mode presets
 │   ├── GameModeSelector.vue   # Game mode selection UI
-│   ├── GameModeParliament.vue # Parliament-specific mode component
 │   ├── HolidayBackground.vue  # Christmas theme background image
 │   ├── SnowEffect.vue         # Falling snow animation (Christmas theme)
-│   ├── ProgressIndicator.vue  # Progress indicator component
 │   └── icons/                 # SVG icon components
-│       ├── XIcon.vue, OIcon.vue, SquareIcon.vue, StarIcon.vue
-│       ├── TriangleIcon.vue, DiamondIcon.vue, CircleIcon.vue
-│       ├── PlusIcon.vue, HeartIcon.vue, PentagonIcon.vue
-│       └── RefreshIcon.vue, ExitIcon.vue, CloseIcon.vue, etc.
 └── composables/
-    └── useTheme.ts            # Theme management (auto/christmas/default)
+    ├── useTheme.ts            # Theme management (auto/christmas/default)
+    ├── useSocket.ts           # Socket.IO connection management
+    ├── useOnlineGame.ts       # Online game state management
+    └── useTouchBoard.ts       # Mobile touch gestures (pinch-zoom, tap-to-place)
+
+server/                        # Multiplayer Server (Socket.IO)
+├── src/
+│   ├── index.ts               # Server entry point (Express + Socket.IO)
+│   ├── rooms/
+│   │   └── RoomStore.ts       # Room management and storage
+│   └── socket/
+│       └── handlers.ts        # Socket event handlers
+└── package.json               # Server dependencies
+
+shared/                        # Shared Types
+├── types/
+│   ├── index.ts               # Game types (Player, Board, etc.)
+│   └── events.ts              # Socket.IO event types
+└── engine/
+    └── index.ts               # Shared game logic (move validation, win detection)
 ```
 
 ### Configuration

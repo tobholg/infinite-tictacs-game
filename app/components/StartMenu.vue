@@ -25,6 +25,11 @@
               <span class="mode-label">Online</span>
               <span class="mode-desc">Play with friends via room code</span>
             </button>
+            <button class="mode-card ai-training-card" @click="emit('openAITraining')">
+              <span class="mode-icon">🤖</span>
+              <span class="mode-label">AI Training Lab</span>
+              <span class="mode-desc">Train and simulate AI players</span>
+            </button>
           </div>
         </section>
       </div>
@@ -409,6 +414,7 @@ const emit = defineEmits<{
   startGame: [settings: GameSettings]
   createRoom: [settings: OnlineHostSettings]
   joinRoom: [code: string, name: string, asSpectator: boolean]
+  openAITraining: []
 }>()
 
 // Stage management
@@ -821,6 +827,17 @@ const handleJoinRoom = () => {
   border-color: var(--color-primary);
   transform: translateY(-4px);
   box-shadow: 0 12px 24px rgba(99, 102, 241, 0.2);
+}
+
+.mode-card.ai-training-card {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.mode-card.ai-training-card:hover {
+  border-color: #8b5cf6;
+  box-shadow: 0 12px 24px rgba(139, 92, 246, 0.25);
 }
 
 .mode-icon {

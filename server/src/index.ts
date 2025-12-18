@@ -62,6 +62,19 @@ app.get('/stats', (_req, res) => {
   })
 })
 
+// AI stats endpoint - show Q-learning model info
+app.get('/ai-stats', (_req, res) => {
+  // Import dynamically to avoid circular deps
+  import('./ai/QLearningServer.js').then(({ getAIStats }) => {
+    res.json({
+      models: getAIStats(),
+      description: 'Q-learning models that improve from real player games'
+    })
+  }).catch(() => {
+    res.json({ models: {}, error: 'AI module not loaded' })
+  })
+})
+
 // Create Socket.IO server with typed events
 const io = new Server<
   ClientToServerEvents,
@@ -98,7 +111,19 @@ startTimeoutChecker(io, roomStore)
 // Start Server
 // -----------------------------------------------------------------------------
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
+  // Get AI stats for startup message
+  let aiInfo = ''
+  try {
+    const { getAIStats } = await import('./ai/QLearningServer.js')
+    const stats = getAIStats()
+    const modelCount = Object.keys(stats).length
+    const totalStates = Object.values(stats).reduce((sum, m) => sum + m.states, 0)
+    aiInfo = `   🤖 AI: ${modelCount} models loaded, ${totalStates} learned states`
+  } catch {
+    aiInfo = '   🤖 AI: Learning from player games (starting fresh)'
+  }
+
   console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
@@ -108,27 +133,33 @@ httpServer.listen(PORT, () => {
 ║   Accepting connections from: ${CLIENT_URL}            ║
 ║   Room TTL: ${ROOM_IDLE_TTL_MINUTES} minutes                                        ║
 ║                                                               ║
+${aiInfo.padEnd(63)}║
+║   AI learns from every game - gets smarter over time!         ║
+║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
   `)
 })
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...')
-  roomStore.stopCleanupInterval()
-  stopTimeoutChecker()
-  httpServer.close(() => {
-    console.log('Server closed')
-    process.exit(0)
-  })
-})
+// Graceful shutdown - save AI models before exit
+async function gracefulShutdown(signal: string) {
+  console.log(`${signal} received, shutting down gracefully...`)
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully...')
+  // Save AI models before shutting down
+  try {
+    const { saveAllModels } = await import('./ai/QLearningServer.js')
+    saveAllModels()
+    console.log('[Q-Learning] Models saved before shutdown')
+  } catch (e) {
+    console.log('[Q-Learning] Could not save models:', e)
+  }
+
   roomStore.stopCleanupInterval()
   stopTimeoutChecker()
   httpServer.close(() => {
     console.log('Server closed')
     process.exit(0)
   })
-})
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))

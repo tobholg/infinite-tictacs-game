@@ -22,6 +22,7 @@ import type {
 import type { GameState, Player } from '../../../shared/types/index.js'
 
 import { getServerAIMove, isAIPlayer, getAIDifficulty } from '../ai/ServerAI.js'
+import { getQLearningMove, recordMove, learnFromGame, getAIStats } from '../ai/QLearningServer.js'
 
 import {
   createInitialState,
@@ -667,9 +668,17 @@ function executeAIMove(
   if (roomData.gameState.winner || roomData.gameState.isDraw) return
 
   try {
-    // Get AI move
+    // Get AI move - try Q-learning first, fallback to heuristic
     const difficulty = getAIDifficulty(aiPlayer)
-    const move = getServerAIMove(roomData.gameState, difficulty)
+    let move = getQLearningMove(roomData.gameState)
+
+    // Fallback to heuristic AI if Q-learning doesn't have a good move
+    if (!move) {
+      move = getServerAIMove(roomData.gameState, difficulty)
+      console.log(`[AI] ${aiPlayer.name} using heuristic AI (no Q-learning data)`)
+    } else {
+      console.log(`[AI] ${aiPlayer.name} using Q-learning model`)
+    }
 
     // Apply the move
     const result = applyMove(roomData.gameState, aiPlayer.id, move.row, move.col)
@@ -777,6 +786,20 @@ function handleSubmitMove(
   // Update stored game state
   roomStore.setGameState(roomCode, finalState)
 
+  // Record move for Q-learning (learn from real player games!)
+  const movingPlayer = roomData.gameState.players[roomData.gameState.currentPlayerIndex]
+  if (movingPlayer && !movingPlayer.isAI) {
+    // Only learn from human moves (AI moves don't teach us anything new)
+    recordMove(
+      roomData.gameState.board,  // Board state BEFORE the move
+      row,
+      col,
+      roomData.gameState.currentPlayerIndex,
+      movingPlayer.symbol,
+      roomData.gameState.players.length
+    )
+  }
+
   // Acknowledge move
   socket.emit('move:ack', { accepted: true })
 
@@ -834,6 +857,17 @@ function handleRoundEnd(
   io.to(roomCode.toUpperCase()).emit('scoreboard:updated', {
     scoreboard: room.scoreboard,
   })
+
+  // Learn from completed game (Q-learning gets smarter!)
+  const hasHumanPlayers = gameState.players.some(p => !p.isAI)
+  if (hasHumanPlayers) {
+    learnFromGame(
+      gameState.players.length,
+      gameState.winner,
+      gameState.board
+    )
+    console.log(`[Q-Learning] Learning from game with ${gameState.players.length} players`)
+  }
 
   console.log(`Round ended in room ${roomCode}. Winner: ${winnerPlayer?.name || 'Draw'}`)
 }

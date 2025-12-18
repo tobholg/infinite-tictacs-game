@@ -29,3 +29,5 @@
 - Place a piece at the initial top-left edge: board should grow upward/left without shifting existing pieces or highlights.
 - Verify `winningCells` still matches the rendered winning line after an upward/left expansion.
 - Confirm recency glow/just-placed animation appears only on occupied cells post-expansion. 
+
+

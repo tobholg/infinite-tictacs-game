@@ -6,6 +6,8 @@ import { useOnlineSettings } from '~/composables/useOnlineSettings'
 import { useSound } from '~/composables/useSound'
 
 import type { Position, PlayerSymbol, Player } from '../../shared/types'
+import PlayerTurnBar from './PlayerTurnBar.vue'
+import { useTouchBoard } from '~/composables/useTouchBoard'
 
 // Icon Components
 import XIcon from './icons/XIcon.vue'
@@ -267,6 +269,9 @@ function handleCellClick(row: number, col: number) {
     return
   }
 
+  // Clear touch selection when placing
+  clearSelection()
+
   // Play piece placed sound
   playSound('piecePlaced')
 
@@ -310,6 +315,26 @@ async function scrollToCell(row: number, col: number) {
     behavior: 'smooth'
   })
 }
+
+// Touch Board Support
+const {
+  zoomLevel,
+  panOffset,
+  selectedCell,
+  isPanning,
+  handleTouchStart,
+  handleTouchMove,
+  handleTouchEnd,
+  isSelectedCell,
+  clearSelection,
+  getBoardTransform
+} = useTouchBoard({
+  onPlaceRequest: (row: number, col: number) => {
+    handleCellClick(row, col)
+  },
+  boardElement,
+  cellSize
+})
 
 // Player chip animation
 function getPlayerChipAnimation(playerSymbol: PlayerSymbol, playerIndex: number) {
@@ -355,6 +380,7 @@ function getCellClasses(row: number, col: number, value: string) {
     clickable: canClickCell(row, col),
     'my-turn': isMyTurn.value && !value,
     'just-placed': isJustPlaced,
+    'cell-selected': isSelectedCell(row, col),
     // Expansion animation classes
     'expansion-new': expansionEdge !== null,
     [`expansion-${expansionEdge}`]: expansionEdge !== null,
@@ -565,42 +591,15 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
       </span>
     </Motion>
 
-    <!-- Players Strip -->
-    <div class="players-strip-wrapper">
-      <div class="players-strip">
-        <Motion
-          v-for="(player, index) in gamePlayers"
-          :key="player.id"
-          tag="div"
-          class="player-chip"
-          :class="{
-            active: currentPlayerIndex === index && !winner,
-            winner: winner === player.symbol,
-            'is-me': player.id === myPlayer?.id,
-            'ai-thinking': isAIThinking && currentPlayerIndex === index && player.isAI
-          }"
-          :data-symbol="player.symbol.toLowerCase()"
-          :initial="{ opacity: 0, y: 12, scale: 0.92 }"
-          :animate="getPlayerChipAnimation(player.symbol, index)"
-          :transition="playerChipTransition"
-        >
-          <span class="player-symbol">
-            <component :is="getSymbolComponent(player.symbol)" :size="26" :stroke-width="4" />
-          </span>
-          <span class="player-name">{{ player.name }}</span>
-          <!-- AI Thinking Bubble -->
-          <span v-if="isAIThinking && currentPlayerIndex === index && player.isAI" class="ai-thinking-bubble">...</span>
-          <div v-if="currentPlayerIndex === index && !winner && !(isAIThinking && player.isAI)" class="turn-indicator">
-            <span class="turn-indicator-dot"></span>
-            <div v-if="turnTimeRemaining" class="timer-display" :class="{ warning: timerWarning }">
-              <span class="timer-text">{{ turnTimeRemaining }}s</span>
-            </div>
-          </div>
-          <span v-if="winner === player.symbol" class="status-tag">Winner</span>
-          <span v-if="player.id === myPlayer?.id" class="you-tag">You</span>
-        </Motion>
-      </div>
-    </div>
+    <!-- Minimalistic Player Turn Bar -->
+    <PlayerTurnBar
+      :players="gamePlayers"
+      :current-player-index="currentPlayerIndex"
+      :winner="winner"
+      :is-a-i-thinking="isAIThinking"
+      :time-left="turnTimeRemaining"
+      :show-timer="!!turnTimeRemaining"
+    />
 
     <!-- Board Info -->
     <div class="board-info-row">
@@ -618,12 +617,17 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
       <div
         ref="boardElement"
         class="board"
+        :class="{ 'is-panning': isPanning }"
         :style="{
           '--cell-size': `${cellSize}px`,
           '--grid-cols': boardSize.cols,
           gridTemplateColumns: `repeat(${boardSize.cols}, ${cellSize}px)`,
-          gridTemplateRows: `repeat(${boardSize.rows}, ${cellSize}px)`
+          gridTemplateRows: `repeat(${boardSize.rows}, ${cellSize}px)`,
+          ...getBoardTransform()
         }"
+        @touchstart="handleTouchStart"
+        @touchmove="handleTouchMove"
+        @touchend="handleTouchEnd"
       >
         <template v-for="(row, rowIndex) in board" :key="`row-${boardOffset.row + rowIndex}`">
           <Motion

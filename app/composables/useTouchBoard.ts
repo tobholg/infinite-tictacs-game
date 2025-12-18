@@ -1,0 +1,272 @@
+import { ref, type Ref } from 'vue'
+
+export interface TouchBoardOptions {
+  onPlaceRequest: (row: number, col: number) => void
+  boardElement: Ref<HTMLElement | null>
+  cellSize: Ref<number>
+  getCellFromPoint?: (x: number, y: number) => { row: number; col: number } | null
+}
+
+export interface TouchBoardState {
+  zoomLevel: Ref<number>
+  panOffset: Ref<{ x: number; y: number }>
+  selectedCell: Ref<{ row: number; col: number } | null>
+  isPanning: Ref<boolean>
+  isPinching: Ref<boolean>
+}
+
+const MIN_ZOOM = 0.5
+const MAX_ZOOM = 3.0
+const PAN_THRESHOLD = 8 // pixels - movement beyond this is considered a pan
+const DOUBLE_TAP_DELAY = 300 // ms
+const GAP_SIZE = 8 // CSS gap between cells
+
+export function useTouchBoard(options: TouchBoardOptions) {
+  const { onPlaceRequest, boardElement, cellSize, getCellFromPoint } = options
+
+  // State
+  const zoomLevel = ref(1)
+  const panOffset = ref({ x: 0, y: 0 })
+  const selectedCell = ref<{ row: number; col: number } | null>(null)
+  const isPanning = ref(false)
+  const isPinching = ref(false)
+
+  // Internal tracking
+  const touchStartPos = ref<{ x: number; y: number } | null>(null)
+  const initialPinchDistance = ref<number>(0)
+  const initialZoomLevel = ref<number>(1)
+  const lastTapTime = ref<number>(0)
+  const lastTapCell = ref<{ row: number; col: number } | null>(null)
+  const hasMoved = ref(false)
+  const initialPanOffset = ref({ x: 0, y: 0 })
+
+  // Helper: Calculate distance between two touch points
+  const getTouchDistance = (touches: TouchList): number => {
+    if (touches.length < 2) return 0
+    const dx = touches[0].clientX - touches[1].clientX
+    const dy = touches[0].clientY - touches[1].clientY
+    return Math.hypot(dx, dy)
+  }
+
+  // Helper: Get center point of two touches
+  const getTouchCenter = (touches: TouchList): { x: number; y: number } => {
+    if (touches.length < 2) {
+      return { x: touches[0].clientX, y: touches[0].clientY }
+    }
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2
+    }
+  }
+
+  // Helper: Convert screen coordinates to board cell
+  const screenToCell = (screenX: number, screenY: number): { row: number; col: number } | null => {
+    if (getCellFromPoint) {
+      return getCellFromPoint(screenX, screenY)
+    }
+
+    if (!boardElement.value) return null
+
+    const rect = boardElement.value.getBoundingClientRect()
+
+    // Account for zoom and pan
+    const scrollLeft = boardElement.value.scrollLeft || 0
+    const scrollTop = boardElement.value.scrollTop || 0
+
+    // Calculate position relative to board content
+    const relX = (screenX - rect.left + scrollLeft) / zoomLevel.value - panOffset.value.x / zoomLevel.value
+    const relY = (screenY - rect.top + scrollTop) / zoomLevel.value - panOffset.value.y / zoomLevel.value
+
+    // Calculate cell indices (accounting for gap)
+    const cellWithGap = cellSize.value + GAP_SIZE
+    const col = Math.floor(relX / cellWithGap)
+    const row = Math.floor(relY / cellWithGap)
+
+    // Check if within valid bounds (will be validated by the game logic anyway)
+    if (row < 0 || col < 0) return null
+
+    return { row, col }
+  }
+
+  // Helper: Clamp value between min and max
+  const clamp = (value: number, min: number, max: number): number => {
+    return Math.max(min, Math.min(max, value))
+  }
+
+  // Touch Start Handler
+  const handleTouchStart = (event: TouchEvent) => {
+    const touches = event.touches
+
+    if (touches.length === 2) {
+      // Two fingers - start pinch zoom
+      isPinching.value = true
+      isPanning.value = false
+      initialPinchDistance.value = getTouchDistance(touches)
+      initialZoomLevel.value = zoomLevel.value
+      hasMoved.value = true // Prevent tap action
+    } else if (touches.length === 1) {
+      // One finger - could be tap or pan
+      touchStartPos.value = {
+        x: touches[0].clientX,
+        y: touches[0].clientY
+      }
+      initialPanOffset.value = { ...panOffset.value }
+      hasMoved.value = false
+      isPanning.value = false
+    }
+  }
+
+  // Touch Move Handler
+  const handleTouchMove = (event: TouchEvent) => {
+    event.preventDefault() // Prevent browser zoom/scroll
+
+    const touches = event.touches
+
+    if (isPinching.value && touches.length === 2) {
+      // Handle pinch zoom
+      const currentDistance = getTouchDistance(touches)
+      if (initialPinchDistance.value > 0) {
+        const scale = currentDistance / initialPinchDistance.value
+        const newZoom = clamp(initialZoomLevel.value * scale, MIN_ZOOM, MAX_ZOOM)
+        zoomLevel.value = newZoom
+      }
+    } else if (touches.length === 1 && touchStartPos.value) {
+      // Handle potential pan
+      const dx = touches[0].clientX - touchStartPos.value.x
+      const dy = touches[0].clientY - touchStartPos.value.y
+      const distance = Math.hypot(dx, dy)
+
+      if (distance > PAN_THRESHOLD) {
+        // Movement exceeds threshold - this is a pan
+        hasMoved.value = true
+        isPanning.value = true
+        panOffset.value = {
+          x: initialPanOffset.value.x + dx,
+          y: initialPanOffset.value.y + dy
+        }
+      }
+    }
+  }
+
+  // Touch End Handler
+  const handleTouchEnd = (event: TouchEvent) => {
+    if (isPinching.value) {
+      // End pinch - check if any fingers remain
+      if (event.touches.length < 2) {
+        isPinching.value = false
+        initialPinchDistance.value = 0
+
+        // If one finger remains, reset for potential pan
+        if (event.touches.length === 1) {
+          touchStartPos.value = {
+            x: event.touches[0].clientX,
+            y: event.touches[0].clientY
+          }
+          initialPanOffset.value = { ...panOffset.value }
+          hasMoved.value = false
+        }
+      }
+      return
+    }
+
+    if (isPanning.value) {
+      // End pan
+      isPanning.value = false
+      touchStartPos.value = null
+      return
+    }
+
+    // Check for tap (no significant movement)
+    if (!hasMoved.value && touchStartPos.value) {
+      const changedTouch = event.changedTouches[0]
+      const cell = screenToCell(changedTouch.clientX, changedTouch.clientY)
+
+      if (cell) {
+        const now = Date.now()
+        const isSameCell = lastTapCell.value?.row === cell.row && lastTapCell.value?.col === cell.col
+        const isDoubleTap = (now - lastTapTime.value) < DOUBLE_TAP_DELAY && isSameCell
+        const isTapOnSelected = selectedCell.value?.row === cell.row && selectedCell.value?.col === cell.col
+
+        if (isDoubleTap || isTapOnSelected) {
+          // Double tap or tap on selected cell - place piece
+          onPlaceRequest(cell.row, cell.col)
+          selectedCell.value = null
+          lastTapCell.value = null
+          lastTapTime.value = 0
+        } else {
+          // Single tap - select cell
+          selectedCell.value = { row: cell.row, col: cell.col }
+          lastTapCell.value = { row: cell.row, col: cell.col }
+          lastTapTime.value = now
+        }
+      }
+    }
+
+    // Reset tracking
+    touchStartPos.value = null
+    isPanning.value = false
+  }
+
+  // Selection helpers
+  const selectCell = (row: number, col: number) => {
+    selectedCell.value = { row, col }
+  }
+
+  const clearSelection = () => {
+    selectedCell.value = null
+    lastTapCell.value = null
+    lastTapTime.value = 0
+  }
+
+  const isSelectedCell = (row: number, col: number): boolean => {
+    return selectedCell.value?.row === row && selectedCell.value?.col === col
+  }
+
+  // Zoom controls (for UI buttons if needed)
+  const zoomIn = () => {
+    zoomLevel.value = clamp(zoomLevel.value * 1.25, MIN_ZOOM, MAX_ZOOM)
+  }
+
+  const zoomOut = () => {
+    zoomLevel.value = clamp(zoomLevel.value / 1.25, MIN_ZOOM, MAX_ZOOM)
+  }
+
+  const resetView = () => {
+    zoomLevel.value = 1
+    panOffset.value = { x: 0, y: 0 }
+  }
+
+  // Board transform style
+  const getBoardTransform = () => {
+    return {
+      transform: `translate(${panOffset.value.x}px, ${panOffset.value.y}px) scale(${zoomLevel.value})`,
+      transformOrigin: 'center center'
+    }
+  }
+
+  return {
+    // State
+    zoomLevel,
+    panOffset,
+    selectedCell,
+    isPanning,
+    isPinching,
+
+    // Event handlers
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+
+    // Helpers
+    selectCell,
+    clearSelection,
+    isSelectedCell,
+    screenToCell,
+
+    // Zoom controls
+    zoomIn,
+    zoomOut,
+    resetView,
+    getBoardTransform
+  }
+}

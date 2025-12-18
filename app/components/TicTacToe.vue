@@ -51,6 +51,7 @@
           @start-game="handleStartGame"
           @create-room="handleCreateRoom"
           @join-room="handleJoinRoom"
+          @open-a-i-training="showAITraining = true"
         />
       </Motion>
 

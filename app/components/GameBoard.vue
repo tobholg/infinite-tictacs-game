@@ -1,69 +1,14 @@
 <template>
   <div class="game-board-wrapper">
-    <div class="players-strip-wrapper">
-      <div class="players-strip">
-        <Motion
-          v-for="(player, index) in players"
-          :key="player.symbol"
-          tag="div"
-          class="player-chip"
-        :class="{
-          active: currentPlayerIndex === index && !winner,
-          winner: winner === player.symbol,
-          'ai-thinking': isAIThinking && currentPlayerIndex === index && player.isAI
-        }"
-        :data-symbol="player.symbol.toLowerCase()"
-        :initial="{ opacity: 0, y: 12, scale: 0.92 }"
-        :animate="getPlayerChipAnimation(player.symbol, index)"
-        :transition="playerChipTransition"
-      >
-        <span class="player-symbol">
-          <XIcon v-if="player.symbol === 'X'" :size="26" :stroke-width="4" />
-          <OIcon v-else-if="player.symbol === 'O'" :size="26" :stroke-width="4" />
-          <SquareIcon v-else-if="player.symbol === 'Square'" :size="26" :stroke-width="4" />
-          <StarIcon v-else-if="player.symbol === 'Star'" :size="26" :stroke-width="4" />
-          <TriangleIcon v-else-if="player.symbol === 'Triangle'" :size="26" :stroke-width="4" />
-          <DiamondIcon v-else-if="player.symbol === 'Diamond'" :size="26" :stroke-width="4" />
-          <CircleIcon v-else-if="player.symbol === 'Circle'" :size="26" :stroke-width="4" />
-          <PlusIcon v-else-if="player.symbol === 'Plus'" :size="26" :stroke-width="4" />
-          <HeartIcon v-else-if="player.symbol === 'Heart'" :size="26" :stroke-width="4" />
-          <PentagonIcon v-else-if="player.symbol === 'Pentagon'" :size="26" :stroke-width="4" />
-        </span>
-        <span class="player-name">{{ player.name }}</span>
-        <!-- AI Thinking Bubble -->
-        <span v-if="isAIThinking && currentPlayerIndex === index && player.isAI" class="ai-thinking-bubble">...</span>
-        <div class="turn-indicator" v-if="currentPlayerIndex === index && !winner && !(isAIThinking && player.isAI)">
-          <span class="turn-indicator-dot"></span>
-          <div v-if="hasTimeLimitRule && isTimerActive" class="timer-display" :class="{ warning: timerWarning }">
-            <div class="timer-circle">
-              <svg class="timer-svg" viewBox="0 0 36 36">
-                <path class="timer-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path class="timer-progress"
-                  :style="{ strokeDasharray: `${(timeLeft / props.timeLimit) * 100}, 100` }"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-              </svg>
-              <div class="timer-text">{{ timeLeft.toFixed(1) }}</div>
-            </div>
-          </div>
-        </div>
-        <span v-if="winner === player.symbol" class="status-tag">Winner</span>
-      </Motion>
-      </div>
-      <Motion
-        v-if="showVictoryBadge && (winner || isDraw)"
-        tag="div"
-        class="victory-badge-chip"
-        :initial="{ opacity: 0, y: -10, scale: 0.9 }"
-        :animate="{ opacity: 1, y: 0, scale: 1 }"
-        :exit="{ opacity: 0, scale: 0.9 }"
-        :transition="{ duration: 0.4, easing: livelySpringEasing }"
-        :style="victoryBadgeStyle"
-      >
-        <span class="victory-badge-label">{{ victoryBadgeText }}</span>
-        <span v-if="winner" class="victory-badge-subtle">{{ players.find(p => p.symbol === winner)?.name || winner }} is celebrating</span>
-        <span v-else class="victory-badge-subtle">Balance achieved</span>
-      </Motion>
-    </div>
+    <!-- Minimalistic Player Turn Bar -->
+    <PlayerTurnBar
+      :players="players"
+      :current-player-index="currentPlayerIndex"
+      :winner="winner"
+      :is-a-i-thinking="isAIThinking"
+      :time-left="timeLeft"
+      :show-timer="hasTimeLimitRule && isTimerActive"
+    />
 
     <div class="board-info-row">
       <span>Board: {{ boardSize.rows }} × {{ boardSize.cols }}</span>
@@ -126,7 +71,11 @@
       <div
         ref="boardElement"
         class="board"
-        :style="boardStyle"
+        :class="{ 'is-panning': isPanning }"
+        :style="{ ...boardStyle, ...getBoardTransform() }"
+        @touchstart="handleTouchStart"
+        @touchmove="handleTouchMove"
+        @touchend="handleTouchEnd"
       >
         <template v-if="false">
           <div
@@ -207,6 +156,7 @@
                 'winning-cell': isWinningCell(rowIndex, colIndex),
                 'cell-filled': cell !== '',
                 'cell-just-placed': isLastPlacedCell(rowIndex, colIndex),
+                'cell-selected': isSelectedCell(rowIndex, colIndex),
                 ['cell-' + cell.toLowerCase()]: cell !== '',
                 'new-edge-top': isNewEdgeCell(rowIndex, colIndex).direction === 'top',
                 'new-edge-bottom': isNewEdgeCell(rowIndex, colIndex).direction === 'bottom',
@@ -369,7 +319,9 @@ import PlusIcon from './icons/PlusIcon.vue'
 import HeartIcon from './icons/HeartIcon.vue'
 import PentagonIcon from './icons/PentagonIcon.vue'
 import type { Player, PlayerSymbol } from './StartMenu.vue'
+import PlayerTurnBar from './PlayerTurnBar.vue'
 import { useQLearning, type AIDifficulty, PLAYER_SYMBOLS } from '~/composables/useQLearning'
+import { useTouchBoard } from '~/composables/useTouchBoard'
 type QBoard = ('' | typeof PLAYER_SYMBOLS[number])[][]
 
 interface CantPlaceEffects {
@@ -400,7 +352,7 @@ const emit = defineEmits<{
 }>()
 
 // AI Integration
-const { getAIMove, loadModelFromStorage } = useQLearning()
+const { getAIMove, ensureModelLoaded } = useQLearning()
 const isAIThinking = ref(false)
 
 // Check if current player is AI
@@ -984,6 +936,9 @@ const makeMove = async (row: number, col: number) => {
     return
   }
 
+  // Clear touch selection when placing
+  clearSelection()
+
   // Determine if the board needs to grow before placing the piece
   const expandTop = row === 0
   const expandBottom = row === boardSize.value.rows - 1
@@ -1082,6 +1037,26 @@ const makeMove = async (row: number, col: number) => {
   }
 }
 
+// Touch Board Support
+const {
+  zoomLevel,
+  panOffset,
+  selectedCell,
+  isPanning,
+  handleTouchStart,
+  handleTouchMove,
+  handleTouchEnd,
+  isSelectedCell,
+  clearSelection,
+  getBoardTransform
+} = useTouchBoard({
+  onPlaceRequest: (row: number, col: number) => {
+    makeMove(row, col)
+  },
+  boardElement,
+  cellSize
+})
+
 // AI Move Logic
 async function triggerAIMoveIfNeeded() {
   if (winner.value || isDraw.value) return
@@ -1101,6 +1076,9 @@ async function triggerAIMoveIfNeeded() {
 
     // Get player symbols in game order
     const playerSymbols = props.players.map(p => p.symbol as typeof PLAYER_SYMBOLS[number])
+
+    // Load the correct model for this player count (always reload to get latest trained model)
+    ensureModelLoaded(props.players.length)
 
     // Get AI move
     const move = getAIMove(

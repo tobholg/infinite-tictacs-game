@@ -713,3 +713,100 @@ button:disabled {
     0 0 30px rgba(196, 30, 58, 0.6),
     0 0 60px rgba(45, 90, 39, 0.4);
 }
+
+/* ============================================
+   Mobile Touch Support & Selected Cell Styles
+   ============================================ */
+
+/* Board touch handling - prevent browser zoom/scroll */
+.board {
+  touch-action: none;
+  -webkit-overflow-scrolling: touch;
+  will-change: transform;
+  transition: transform 0.1s ease-out;
+}
+
+/* Disable smooth transition while panning for responsiveness */
+.board.is-panning {
+  transition: none;
+}
+
+/* Selected cell highlight (touch tap-to-select) */
+.cell.cell-selected {
+  border-color: var(--color-accent, #00D9FF) !important;
+  background: rgba(0, 217, 255, 0.15) !important;
+  box-shadow:
+    0 0 20px rgba(0, 217, 255, 0.5),
+    inset 0 0 15px rgba(0, 217, 255, 0.2) !important;
+  animation: selectedCellPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes selectedCellPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(0, 217, 255, 0.5),
+      inset 0 0 15px rgba(0, 217, 255, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(0, 217, 255, 0.7),
+      inset 0 0 20px rgba(0, 217, 255, 0.3);
+  }
+}
+
+/* Touch device detection - remove hover effects that don't work on touch */
+@media (hover: none) and (pointer: coarse) {
+  .cell:hover:not(.cell-filled):not(.disabled) {
+    transform: none;
+    border-color: rgba(0, 217, 255, 0.2);
+    background: rgba(26, 29, 53, 0.6);
+    box-shadow: none;
+  }
+
+  /* Add active state for touch feedback */
+  .cell:active:not(.cell-filled):not(.disabled) {
+    transform: scale(0.95);
+    border-color: var(--neon-cyan, #00D9FF);
+    background: rgba(0, 217, 255, 0.1);
+    transition: transform 0.1s ease;
+  }
+}
+
+/* Mobile-specific responsive adjustments */
+@media (max-width: 768px) {
+  /* Ensure minimum touch target size (44px recommended by Apple/Google) */
+  .cell {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Compact board info */
+  .board-info-row {
+    font-size: var(--text-xs);
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* Full-width player turn bar with sticky positioning */
+  .player-turn-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--color-bg);
+    padding: var(--space-2);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Adjust board container for mobile */
+  .board-container {
+    max-height: calc(100vh - 160px);
+    overflow: auto;
+  }
+
+  /* Smaller action buttons on mobile */
+  .action-button {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+  }
+}

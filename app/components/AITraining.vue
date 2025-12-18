@@ -392,6 +392,17 @@
           Import Model
           <input type="file" @change="handleImport" accept=".json" class="file-input" />
         </label>
+
+        <button @click="clearAllModels" class="btn btn-outline btn-danger-outline">
+          Clear All Models
+        </button>
+      </div>
+
+      <!-- Storage Info -->
+      <div class="storage-info">
+        <span class="storage-label">localStorage:</span>
+        <span class="storage-value">{{ storageUsedKB }}KB used</span>
+        <span v-if="storageUsedKB > 4000" class="storage-warning">⚠️ Near limit!</span>
       </div>
     </div>
 
@@ -403,7 +414,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, triggerRef } from 'vue'
 import { useQLearning, type PlayerSymbol, type ModelTrainingConfig } from '../composables/useQLearning'
 
 const emit = defineEmits<{
@@ -431,7 +442,8 @@ const {
   setPlayerCount,
   setParallelGames,
   getActivePlayers,
-  getStoredModelInfo
+  getStoredModelInfo,
+  deleteStoredModel
 } = useQLearning()
 
 // Parallel games local state (synced with config)
@@ -441,9 +453,26 @@ watch(parallelGamesValue, (val) => setParallelGames(val))
 // Refresh trigger for model statuses (localStorage is not reactive)
 const modelStatusRefreshTrigger = ref(0)
 
-function refreshModelStatuses() {
+async function refreshModelStatuses() {
+  // Force Vue to re-evaluate computed properties
   modelStatusRefreshTrigger.value++
+  triggerRef(modelStatusRefreshTrigger)
+  await nextTick()
   console.log('Model statuses refreshed, trigger:', modelStatusRefreshTrigger.value)
+}
+
+// More aggressive refresh with multiple attempts
+async function forceRefreshModelStatuses() {
+  // Refresh immediately
+  await refreshModelStatuses()
+  // Refresh again after short delay to catch any race conditions
+  setTimeout(async () => {
+    await refreshModelStatuses()
+  }, 100)
+  // One more refresh after a longer delay
+  setTimeout(async () => {
+    await refreshModelStatuses()
+  }, 300)
 }
 
 // Refresh model statuses on mount
@@ -454,20 +483,16 @@ onMounted(() => {
 // Watch for regular training completion
 watch(() => isTraining.value, (training, wasTraining) => {
   if (wasTraining && !training) {
-    // Small delay to ensure localStorage has been updated
-    setTimeout(() => {
-      refreshModelStatuses()
-    }, 100)
+    // Training just completed - force aggressive refresh
+    forceRefreshModelStatuses()
   }
 })
 
 // Watch for multi-model training completion
 watch(() => multiModelProgress.value.isRunning, (isRunning, wasRunning) => {
   if (wasRunning && !isRunning) {
-    // Training completed - refresh with delay to ensure all saves are done
-    setTimeout(() => {
-      refreshModelStatuses()
-    }, 200)
+    // Multi-model training completed - force aggressive refresh
+    forceRefreshModelStatuses()
   }
 })
 
@@ -492,6 +517,40 @@ const progressPercent = computed(() => {
   if (progress.value.total === 0) return 0
   return (progress.value.current / progress.value.total) * 100
 })
+
+// Storage usage computed
+const storageUsedKB = computed(() => {
+  const _trigger = modelStatusRefreshTrigger.value
+  if (typeof window === 'undefined') return 0
+
+  let total = 0
+  for (let pc = 2; pc <= 10; pc++) {
+    const key = `tictactoe-ai-model-${pc}p`
+    const data = localStorage.getItem(key)
+    if (data) {
+      total += data.length
+    }
+  }
+  return Math.round(total / 1024)
+})
+
+// Clear all models from localStorage
+async function clearAllModels() {
+  if (!confirm('Are you sure you want to delete ALL trained AI models? This cannot be undone.')) {
+    return
+  }
+
+  for (let pc = 2; pc <= 10; pc++) {
+    deleteStoredModel(pc)
+  }
+
+  // Reset current training state
+  resetTraining(false)
+
+  // Refresh UI
+  await forceRefreshModelStatuses()
+  console.log('[Q-Learning] All models cleared from localStorage')
+}
 
 // Custom training
 function startCustomTraining() {
@@ -549,8 +608,11 @@ function setAllGames(games: number) {
 }
 
 // Open the Train All modal
-function openTrainAllModal() {
-  refreshModelStatuses()
+async function openTrainAllModal() {
+  await refreshModelStatuses()
+  // Wait a bit more to ensure localStorage is fully read
+  await new Promise(resolve => setTimeout(resolve, 50))
+  await refreshModelStatuses()
   updateGamesToTrain()
   showTrainAllModal.value = true
 }
@@ -1615,5 +1677,40 @@ function handleImport(event: Event): void {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-3);
+}
+
+/* Storage Info */
+.storage-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+.storage-label {
+  color: var(--color-text-secondary);
+}
+
+.storage-value {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.storage-warning {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* Danger Button */
+.btn-danger-outline {
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1) !important;
 }
 </style>
