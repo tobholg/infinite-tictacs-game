@@ -1,5 +1,5 @@
 <template>
-  <div class="experience-shell" :class="{ 'game-active': gameStarted || isOnlineMode }">
+  <div class="experience-shell min-h-screen grid place-items-center p-4" :class="{ 'game-active': gameStarted || isOnlineMode }">
     <!-- Pre-render holiday background (hidden until game starts) -->
     <HolidayBackground :is-visible="gameStarted || isOnlineMode" />
 
@@ -28,10 +28,10 @@
     </template>
 
     <!-- Local Mode -->
-    <div v-else class="experience-content">
-      <header class="experience-header">
-        <h1 class="experience-title heading-display">Infinite Tic-Tacs</h1>
-        <p class="experience-subtitle text-tertiary">
+    <div v-else class="experience-content w-[min(1400px,96vw)] flex flex-col gap-4 items-center text-center">
+      <header class="mb-2 shrink-0">
+        <h1 class="m-0 heading-display">Infinite Tic-Tacs</h1>
+        <p class="mt-1 mb-0 text-sm text-text-tertiary">
           <span v-if="!gameStarted">Start a match and watch the board grow.</span>
           <span v-else>Match in progress — keep every move intentional.</span>
         </p>
@@ -41,7 +41,7 @@
       <Motion
         v-if="!gameStarted"
         tag="div"
-        class="experience-body"
+        class="w-full flex justify-center"
         :initial="{ opacity: 0, y: 20, scale: 0.95 }"
         :animate="{ opacity: 1, y: 0, scale: 1 }"
         :exit="{ opacity: 0, y: -20, scale: 0.95 }"
@@ -59,13 +59,13 @@
       <Motion
         v-else
         tag="div"
-        class="game-layout"
+        class="flex flex-col flex-1 min-h-0 w-full relative"
         :initial="{ opacity: 0, y: 30, scale: 0.95 }"
         :animate="{ opacity: 1, y: 0, scale: 1 }"
         :exit="{ opacity: 0, y: -20, scale: 0.95 }"
         :transition="{ duration: 0.5, easing: 'ease-out' }"
       >
-        <div class="experience-body board-body">
+        <div class="flex flex-col items-center gap-3 flex-1 justify-center min-h-0 pt-2">
           <GameBoard
             ref="gameBoardRef"
             :players="activePlayers"
@@ -76,13 +76,13 @@
             @back-to-menu="handleBackToMenu"
           />
         </div>
-        <div class="session-actions">
+        <div class="flex gap-2 justify-center py-2 shrink-0">
           <button class="btn btn-secondary" @click="handleRestart">
-            <RefreshIcon class="action-icon" />
+            <RefreshIcon class="w-[18px] h-[18px]" />
             <span>Restart</span>
           </button>
           <button class="btn btn-ghost" @click="handleBackToMenu">
-            <ExitIcon class="action-icon" />
+            <ExitIcon class="w-[18px] h-[18px]" />
             <span>Menu</span>
           </button>
         </div>
@@ -190,26 +190,10 @@ const handleRestart = () => {
 </script>
 
 <style scoped>
-.experience-shell {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: var(--space-4);
-}
-
 /* When game is active, use full viewport layout */
 .experience-shell.game-active {
   place-items: stretch;
   padding: 0;
-}
-
-.experience-content {
-  width: min(1400px, 96vw);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  align-items: center;
-  text-align: center;
 }
 
 /* Full-screen layout when game is active */
@@ -222,70 +206,22 @@ const handleRestart = () => {
   padding: var(--space-3) var(--space-4);
 }
 
-.experience-header {
-  margin-bottom: var(--space-2);
-  flex-shrink: 0;
-}
-
 /* Compact header when game is active */
-.experience-shell.game-active .experience-header {
+.experience-shell.game-active header {
   margin-bottom: 0;
   padding: var(--space-2) 0;
 }
 
-.experience-title {
-  margin: 0;
-}
-
 /* Shrink title dramatically in game mode */
-.experience-shell.game-active .experience-title {
+.experience-shell.game-active .heading-display {
   font-size: var(--text-lg);
   line-height: 1.2;
 }
 
-.experience-subtitle {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-sm);
-}
-
 /* Shrink subtitle in game mode */
-.experience-shell.game-active .experience-subtitle {
+.experience-shell.game-active header p {
   font-size: var(--text-xs);
   margin-top: var(--space-1);
-}
-
-.session-actions {
-  display: flex;
-  gap: var(--space-2);
-  justify-content: center;
-  padding: var(--space-2) 0;
-  flex-shrink: 0;
-}
-
-.experience-body {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-.game-layout {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  position: relative;
-}
-
-.board-body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  flex: 1;
-  justify-content: center;
-  min-height: 0;
-  padding-top: var(--space-2);
 }
 
 /* Let players strip flow naturally in game layout */
@@ -294,17 +230,12 @@ const handleRestart = () => {
   max-width: 90vw;
 }
 
-.action-icon {
-  width: 18px;
-  height: 18px;
-}
-
 @media (max-width: 720px) {
   .experience-shell {
     padding: var(--space-5) var(--space-3);
   }
 
-  .session-actions {
+  .experience-shell.game-active > div:last-child > div:last-child {
     width: 100%;
     flex-wrap: wrap;
   }

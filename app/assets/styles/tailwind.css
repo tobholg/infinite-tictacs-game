@@ -1,0 +1,158 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Component layer for reusable classes */
+@layer components {
+  /* Button base */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 py-3 px-6 rounded-md border-2 border-border font-display font-semibold text-sm uppercase tracking-wider transition-all duration-200 bg-surface text-text-primary relative cursor-pointer shadow-sm;
+  }
+
+  .btn:hover:not(:disabled) {
+    @apply -translate-y-0.5 shadow-md border-accent;
+  }
+
+  .btn:active:not(:disabled) {
+    @apply translate-y-0;
+  }
+
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-65;
+  }
+
+  /* Button variants */
+  .btn-primary {
+    @apply bg-gradient-to-br from-neon-cyan to-neon-purple border-neon-cyan text-white;
+    box-shadow: var(--shadow-md), 0 0 20px rgba(0, 217, 255, 0.4), 0 0 40px rgba(0, 217, 255, 0.2);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    @apply bg-gradient-to-br from-neon-cyan-bright to-neon-purple-bright border-neon-cyan-bright -translate-y-0.5;
+    box-shadow: var(--shadow-lg), 0 0 30px rgba(0, 217, 255, 0.6), 0 0 60px rgba(168, 85, 247, 0.4);
+  }
+
+  .btn-secondary {
+    @apply bg-surface-elevated border-border text-text-primary shadow-sm;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    @apply bg-surface-highlight border-accent shadow-md;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent border-transparent text-text-secondary shadow-none;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    @apply text-accent bg-accent-soft border-border shadow-sm;
+  }
+
+  /* Surface cards */
+  .surface-card {
+    @apply bg-surface-elevated border border-border shadow-sm p-4 rounded-lg transition-all duration-200;
+  }
+
+  .surface-panel {
+    @apply p-4 rounded-lg bg-surface border-2 border-border shadow-md;
+  }
+
+  .surface-highlight {
+    @apply bg-surface-highlight border-2 border-border-glow shadow-md;
+  }
+
+  /* Typography */
+  .heading-display {
+    @apply font-display font-bold text-3xl tracking-wider uppercase text-text-primary;
+    text-shadow:
+      0 0 10px var(--neon-cyan),
+      0 0 20px var(--neon-cyan),
+      0 0 30px var(--neon-cyan),
+      0 0 40px rgba(0, 217, 255, 0.5);
+  }
+
+  .heading-section {
+    @apply font-display text-xl font-bold tracking-wider uppercase text-text-primary;
+    text-shadow:
+      0 0 8px currentColor,
+      0 0 15px rgba(0, 217, 255, 0.3);
+  }
+
+  .text-secondary-muted {
+    @apply text-text-secondary;
+  }
+
+  .text-tertiary-muted {
+    @apply text-text-tertiary;
+  }
+
+  /* Layout utilities */
+  .stack {
+    @apply flex flex-col gap-4;
+  }
+
+  .cluster {
+    @apply flex items-center gap-3;
+  }
+
+  .actions {
+    @apply flex items-center gap-3;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center gap-1 py-1.5 px-3 rounded-pill bg-surface-elevated border border-border text-text-secondary font-display text-xs font-semibold uppercase tracking-wider shadow-sm transition-all duration-200;
+  }
+
+  .badge-accent {
+    @apply bg-accent-soft border-accent text-accent;
+  }
+
+  .badge-secondary {
+    @apply bg-secondary-soft border-secondary text-secondary;
+  }
+
+  .badge-positive {
+    @apply bg-positive-soft border-positive text-positive;
+  }
+
+  /* App shell */
+  .app-shell {
+    @apply min-h-screen flex items-center justify-center p-6 relative z-[1];
+  }
+
+  .page-container {
+    @apply w-full max-w-[960px] mx-auto p-6 bg-surface rounded-xl border-2 border-border shadow-lg flex flex-col gap-6;
+  }
+}
+
+/* Utility layer for custom animations */
+@layer utilities {
+  .animate-winning-pulse {
+    animation: winningPulse 1.5s ease-in-out infinite;
+  }
+
+  .animate-cell-appear {
+    animation: cellAppear 0.4s ease-out forwards;
+  }
+
+  .animate-selected-pulse {
+    animation: selectedCellPulse 1.5s ease-in-out infinite;
+  }
+
+  .animate-active-player-pulse {
+    animation: activePlayerPulse 2s ease-in-out infinite;
+  }
+
+  .animate-grid-pulse {
+    animation: gridPulse 4s ease-in-out infinite;
+  }
+
+  .animate-icon-pulse {
+    animation: iconPulse 2s ease-in-out infinite;
+  }
+
+  .animate-gradient-shift {
+    animation: gradientShift 15s ease infinite;
+  }
+}

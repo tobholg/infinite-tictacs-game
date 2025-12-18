@@ -1,53 +1,53 @@
 <template>
-  <div class="start-menu">
+  <div class="flex flex-col gap-3 max-w-[700px] mx-auto">
     <!-- Stage: Mode Selection -->
     <Transition name="slide-fade" mode="out-in">
-      <div v-if="stage === 'mode-select'" key="mode-select" class="stage-content">
+      <div v-if="stage === 'mode-select'" key="mode-select" class="flex flex-col gap-3">
         <!-- Sound button only on main menu -->
-        <div class="stage-header justify-end">
-          <button class="settings-btn" @click="showSoundSettings = true">
+        <div class="flex justify-end items-center gap-3 mb-2">
+          <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="showSoundSettings = true">
             <span>🔊</span>
             <span>Sound</span>
           </button>
         </div>
-        <section class="config-section mode-select-section">
-          <div class="section-header centered">
-            <h2 class="section-title large">How do you want to play?</h2>
+        <section class="bg-surface border border-border rounded-lg py-3 px-4 bg-gradient-to-br from-surface to-[rgba(99,102,241,0.05)]">
+          <div class="mb-3 text-center">
+            <h2 class="m-0 font-display text-xl font-semibold text-text-primary">How do you want to play?</h2>
           </div>
-          <div class="mode-cards">
-            <button class="mode-card" @click="selectLocalMode">
-              <span class="mode-icon">🎮</span>
-              <span class="mode-label">Local Game</span>
-              <span class="mode-desc">Play on this device</span>
+          <div class="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+            <button class="flex flex-col items-center gap-2 p-5 bg-surface-elevated border-2 border-border rounded-lg cursor-pointer transition-all duration-200 text-center hover:border-accent hover:-translate-y-1 hover:shadow-lg" @click="selectLocalMode">
+              <span class="text-[2.5rem]">🎮</span>
+              <span class="text-lg font-semibold text-text-primary">Local Game</span>
+              <span class="text-xs text-text-tertiary">Play on this device</span>
             </button>
-            <button class="mode-card" @click="selectOnlineMode">
-              <span class="mode-icon">🌐</span>
-              <span class="mode-label">Online</span>
-              <span class="mode-desc">Play with friends via room code</span>
+            <button class="flex flex-col items-center gap-2 p-5 bg-surface-elevated border-2 border-border rounded-lg cursor-pointer transition-all duration-200 text-center hover:border-accent hover:-translate-y-1 hover:shadow-lg" @click="selectOnlineMode">
+              <span class="text-[2.5rem]">🌐</span>
+              <span class="text-lg font-semibold text-text-primary">Online</span>
+              <span class="text-xs text-text-tertiary">Play with friends via room code</span>
             </button>
-            <button class="mode-card ai-training-card" @click="emit('openAITraining')">
-              <span class="mode-icon">🤖</span>
-              <span class="mode-label">AI Training Lab</span>
-              <span class="mode-desc">Train and simulate AI players</span>
+            <button class="col-span-full flex flex-col items-center gap-2 p-5 bg-gradient-to-br from-[rgba(99,102,241,0.1)] to-[rgba(139,92,246,0.1)] border-2 border-[rgba(139,92,246,0.3)] rounded-lg cursor-pointer transition-all duration-200 text-center hover:border-[#8b5cf6] hover:-translate-y-1 hover:shadow-lg" @click="emit('openAITraining')">
+              <span class="text-[2.5rem]">🤖</span>
+              <span class="text-lg font-semibold text-text-primary">AI Training Lab</span>
+              <span class="text-xs text-text-tertiary">Train and simulate AI players</span>
             </button>
           </div>
         </section>
       </div>
 
       <!-- Stage: Local Setup -->
-      <div v-else-if="stage === 'local-setup'" key="local-setup" class="stage-content">
+      <div v-else-if="stage === 'local-setup'" key="local-setup" class="flex flex-col gap-3">
         <!-- Header with Back and Settings -->
-        <div class="stage-header">
-          <button class="back-btn" @click="goBack">
+        <div class="flex justify-between items-center gap-3 mb-2 max-sm:flex-wrap">
+          <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="goBack">
             <span>&larr;</span>
             <span>Back</span>
           </button>
-          <div class="header-actions">
-            <button class="settings-btn" @click="showSoundSettings = true">
+          <div class="flex items-center gap-2">
+            <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="showSoundSettings = true">
               <span>🔊</span>
               <span>Sound</span>
             </button>
-            <button class="settings-btn" @click="showSettings = true">
+            <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent hover:rotate-[15deg]" @click="showSettings = true">
               <span>⚙️</span>
               <span>Settings</span>
             </button>
@@ -55,24 +55,25 @@
         </div>
 
         <!-- Game Mode -->
-        <section class="config-section">
-          <div class="section-header">
-            <h3 class="section-title">Game Mode</h3>
-            <p class="section-description">Select your favorite mode</p>
+        <section class="bg-surface border border-border rounded-lg py-3 px-4">
+          <div class="mb-3">
+            <h3 class="m-0 font-display text-lg font-semibold text-text-primary">Game Mode</h3>
+            <p class="mt-1 mb-0 text-xs text-text-secondary">Select your favorite mode</p>
           </div>
-          <div class="presets-grid">
+          <div class="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <label v-for="preset in gamePresets" :key="preset.id"
-                   class="preset-card"
-                   :class="{ selected: isPresetSelected(preset) }">
+                   class="preset-card relative flex flex-col gap-3 p-4 bg-bg-muted border-4 border-border rounded-lg cursor-pointer transition-all duration-200 hover:border-accent hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg"
+                   :class="{ 'preset-selected': isPresetSelected(preset) }">
               <input type="radio"
                      :checked="isPresetSelected(preset)"
-                     @change="selectPreset(preset)" />
-              <div class="preset-icon">{{ preset.icon }}</div>
-              <div class="preset-info">
-                <h4 class="preset-name">{{ preset.name }}</h4>
-                <p class="preset-description">{{ preset.description }}</p>
-                <div v-if="preset.rules.length > 0" class="preset-tags">
-                  <span v-for="rule in preset.rules" :key="rule" class="tag">
+                     @change="selectPreset(preset)"
+                     class="hidden" />
+              <div class="text-[3.5rem] leading-none">{{ preset.icon }}</div>
+              <div class="flex flex-col gap-1">
+                <h4 class="m-0 text-base font-semibold text-text-primary">{{ preset.name }}</h4>
+                <p class="m-0 text-xs text-text-secondary leading-relaxed">{{ preset.description }}</p>
+                <div v-if="preset.rules.length > 0" class="flex flex-wrap gap-2">
+                  <span v-for="rule in preset.rules" :key="rule" class="py-1 px-3 bg-[rgba(99,102,241,0.15)] text-accent text-xs font-semibold rounded-pill">
                     {{ getRuleLabel(rule) }}
                   </span>
                 </div>
@@ -82,16 +83,17 @@
         </section>
 
         <!-- Configure Players -->
-        <section class="config-section">
-          <div class="section-header">
-            <h3 class="section-title">Players</h3>
-            <p class="section-description">Set player names and symbols</p>
+        <section class="bg-surface border border-border rounded-lg py-3 px-4">
+          <div class="mb-3">
+            <h3 class="m-0 font-display text-lg font-semibold text-text-primary">Players</h3>
+            <p class="mt-1 mb-0 text-xs text-text-secondary">Set player names and symbols</p>
           </div>
 
-          <div class="players-list">
-            <div v-for="(player, index) in players" :key="index" class="player-row"
-                 :class="{ 'ai-player': player.isAI }">
-              <div class="player-badge">{{ index + 1 }}</div>
+          <div class="flex flex-col gap-3">
+            <div v-for="(player, index) in players" :key="index"
+                 class="player-row grid gap-3 items-center p-3 bg-[rgba(30,30,45,0.5)] dark:bg-[rgba(30,30,45,0.5)] light:bg-surface-elevated backdrop-blur-sm border-2 border-[rgba(99,102,241,0.3)] rounded-md transition-all duration-200 shadow-sm hover:border-[rgba(99,102,241,0.5)] hover:bg-[rgba(40,40,60,0.6)] hover:shadow-md hover:-translate-y-px"
+                 :class="{ 'ai-player-row': player.isAI }">
+              <div class="w-10 h-10 grid place-items-center bg-[rgba(99,102,241,0.2)] backdrop-blur-sm text-[rgba(167,139,250,0.95)] font-bold rounded-md border border-[rgba(99,102,241,0.3)] shadow-sm">{{ index + 1 }}</div>
               <CharacterPicker
                 v-model="player.symbol"
                 :used-symbols="getUsedSymbols(index)" />
@@ -99,23 +101,23 @@
                 v-model="player.name"
                 type="text"
                 :placeholder="player.isAI ? `AI ${index + 1}` : `Player ${index + 1} name`"
-                class="player-input"
+                class="py-3 px-4 bg-[rgba(20,20,35,0.4)] dark:bg-[rgba(20,20,35,0.4)] light:bg-surface backdrop-blur-sm border border-[rgba(99,102,241,0.25)] light:border-border rounded-md text-[rgba(230,230,250,0.95)] dark:text-[rgba(230,230,250,0.95)] light:text-text-primary text-md transition-all duration-200 focus:outline-none focus:border-[rgba(99,102,241,0.6)] focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] focus:bg-[rgba(25,25,40,0.5)] placeholder:text-[rgba(150,150,170,0.6)]"
                 :disabled="player.isAI"
                 @input="handlePlayerNameInput(index)" />
 
               <!-- AI Toggle & Difficulty -->
-              <div class="ai-controls">
+              <div class="flex items-center gap-2">
                 <button
                   @click="toggleAI(index)"
-                  class="ai-toggle"
-                  :class="{ active: player.isAI }"
+                  class="w-10 h-10 grid place-items-center bg-bg-muted border-2 border-border rounded-md cursor-pointer text-xl transition-all duration-200 hover:border-accent hover:scale-105"
+                  :class="{ 'ai-toggle-active': player.isAI }"
                   :title="player.isAI ? 'Switch to Human' : 'Switch to AI'">
                   {{ player.isAI ? '🤖' : '👤' }}
                 </button>
                 <select
                   v-if="player.isAI"
                   v-model="player.aiDifficulty"
-                  class="ai-difficulty-select">
+                  class="py-2 px-3 bg-bg-muted border border-border rounded-md text-text-primary text-sm cursor-pointer transition-all duration-200 focus:outline-none focus:border-accent">
                   <option value="easy">Easy</option>
                   <option value="medium">Medium</option>
                   <option value="hard">Hard</option>
@@ -125,18 +127,18 @@
               <button
                 v-if="players.length > 2"
                 @click="removePlayer(index)"
-                class="btn-remove"
+                class="w-9 h-9 grid place-items-center bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-md text-critical cursor-pointer transition-all duration-200 hover:bg-[rgba(239,68,68,0.2)] hover:scale-110"
                 title="Remove player">
                 ✕
               </button>
             </div>
 
             <!-- AI Model Status -->
-            <div v-if="hasAnyAI" class="ai-model-status">
-              <span v-if="aiModelInfo" class="model-trained">
+            <div v-if="hasAnyAI" class="p-3 bg-bg-muted rounded-md text-center text-sm">
+              <span v-if="aiModelInfo" class="text-positive">
                 🤖 AI trained with {{ aiModelInfo.gamesPlayed.toLocaleString() }} games
               </span>
-              <span v-else class="model-untrained">
+              <span v-else class="text-warning">
                 ⚠️ No AI trained for {{ players.length }} players yet.
               </span>
             </div>
@@ -144,7 +146,7 @@
             <button
               v-if="players.length < 10"
               @click="addPlayer"
-              class="btn btn-secondary add-player-btn">
+              class="self-start inline-flex items-center justify-center gap-2 py-3 px-6 bg-surface border border-border rounded-pill font-semibold text-md text-text-primary transition-all duration-200 cursor-pointer hover:border-accent hover:-translate-y-0.5">
               <span>+</span>
               <span>Add Player</span>
             </button>
@@ -152,91 +154,92 @@
         </section>
 
         <!-- Start Game Button -->
-        <div class="stage-footer">
+        <div class="flex flex-col gap-3 items-center">
           <button
             @click="handleStartGame"
-            class="btn btn-primary btn-large btn-start-game"
+            class="py-6 px-12 text-xl font-semibold bg-gradient-to-br from-positive to-[#059669] text-white border border-positive rounded-pill shadow-[0_10px_30px_rgba(16,185,129,0.3)] transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(16,185,129,0.4)] hover:bg-gradient-to-br hover:from-[#059669] hover:to-[#047857] disabled:bg-gradient-to-br disabled:from-[#6b7280] disabled:to-[#4b5563] disabled:border-[#6b7280] disabled:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="activePlayers.length < 2 || !selectedMode">
             <span>🎯 Start Game</span>
           </button>
-          <p v-if="activePlayers.length < 2" class="error-message">
+          <p v-if="activePlayers.length < 2" class="m-0 py-3 px-4 bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-md text-critical text-sm font-semibold">
             At least 2 players required to start
           </p>
-          <p v-else-if="!selectedMode" class="error-message">
+          <p v-else-if="!selectedMode" class="m-0 py-3 px-4 bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-md text-critical text-sm font-semibold">
             Please select a game mode
           </p>
         </div>
       </div>
 
       <!-- Stage: Online Selection -->
-      <div v-else-if="stage === 'online-select'" key="online-select" class="stage-content">
+      <div v-else-if="stage === 'online-select'" key="online-select" class="flex flex-col gap-3">
         <!-- Header with Back and Sound -->
-        <div class="stage-header">
-          <button class="back-btn" @click="goBack">
+        <div class="flex justify-between items-center gap-3 mb-2">
+          <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="goBack">
             <span>&larr;</span>
             <span>Back</span>
           </button>
-          <button class="settings-btn" @click="showSoundSettings = true">
+          <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="showSoundSettings = true">
             <span>🔊</span>
             <span>Sound</span>
           </button>
         </div>
 
-        <section class="config-section mode-select-section">
-          <div class="section-header centered">
-            <h2 class="section-title large">Online Multiplayer</h2>
+        <section class="bg-surface border border-border rounded-lg py-3 px-4 bg-gradient-to-br from-surface to-[rgba(99,102,241,0.05)]">
+          <div class="mb-3 text-center">
+            <h2 class="m-0 font-display text-xl font-semibold text-text-primary">Online Multiplayer</h2>
           </div>
-          <div class="mode-cards">
-            <button class="mode-card" @click="selectHostMode">
-              <span class="mode-icon">🎯</span>
-              <span class="mode-label">Host Game</span>
-              <span class="mode-desc">Create a room and invite friends</span>
+          <div class="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+            <button class="flex flex-col items-center gap-2 p-5 bg-surface-elevated border-2 border-border rounded-lg cursor-pointer transition-all duration-200 text-center hover:border-accent hover:-translate-y-1 hover:shadow-lg" @click="selectHostMode">
+              <span class="text-[2.5rem]">🎯</span>
+              <span class="text-lg font-semibold text-text-primary">Host Game</span>
+              <span class="text-xs text-text-tertiary">Create a room and invite friends</span>
             </button>
-            <button class="mode-card" @click="handleJoinGameClick" :class="{ expanded: joinFormExpanded }">
-              <span class="mode-icon">🔗</span>
-              <span class="mode-label">Join Game</span>
-              <span class="mode-desc">Enter a room code to join</span>
+            <button class="flex flex-col items-center gap-2 p-5 bg-surface-elevated border-2 border-border rounded-lg cursor-pointer transition-all duration-200 text-center hover:border-accent hover:-translate-y-1 hover:shadow-lg" @click="handleJoinGameClick" :class="{ expanded: joinFormExpanded }">
+              <span class="text-[2.5rem]">🔗</span>
+              <span class="text-lg font-semibold text-text-primary">Join Game</span>
+              <span class="text-xs text-text-tertiary">Enter a room code to join</span>
             </button>
           </div>
         </section>
 
         <!-- Join Form (inline) -->
         <Transition name="expand">
-          <section v-if="joinFormExpanded" class="config-section join-form-section">
-            <div class="section-header">
-              <h3 class="section-title">Join a Room</h3>
+          <section v-if="joinFormExpanded" class="bg-surface border border-border rounded-lg py-3 px-4 mt-3">
+            <div class="mb-3">
+              <h3 class="m-0 font-display text-lg font-semibold text-text-primary">Join a Room</h3>
             </div>
-            <div class="join-form">
-              <div class="form-group">
-                <label for="join-name">Your Name</label>
+            <div class="flex flex-col gap-2">
+              <div class="flex flex-col gap-2 mb-3">
+                <label for="join-name" class="text-sm font-medium text-text-secondary">Your Name</label>
                 <input
                   id="join-name"
                   v-model="joinName"
                   type="text"
                   placeholder="Enter your name"
                   maxlength="20"
+                  class="py-3 px-4 bg-bg-muted border-2 border-border rounded-md text-text-primary text-base outline-none transition-colors duration-200 focus:border-accent placeholder:text-text-tertiary"
                 />
               </div>
-              <div class="form-group">
-                <label for="join-code">Room Code</label>
+              <div class="flex flex-col gap-2 mb-3">
+                <label for="join-code" class="text-sm font-medium text-text-secondary">Room Code</label>
                 <input
                   id="join-code"
                   v-model="joinCode"
                   type="text"
                   placeholder="Enter 6-letter code"
                   maxlength="6"
-                  class="code-input"
+                  class="py-3 px-4 bg-bg-muted border-2 border-border rounded-md text-text-primary text-lg outline-none transition-colors duration-200 focus:border-accent placeholder:text-text-tertiary uppercase tracking-widest font-mono text-center"
                   @keyup.enter="handleJoinRoom"
                 />
               </div>
-              <div class="form-group spectator-option">
-                <label class="checkbox-label">
-                  <input type="checkbox" v-model="joinAsSpectator" />
-                  <span class="checkbox-text">Join as spectator (watch only)</span>
+              <div class="flex flex-col gap-2 mb-3 mt-1">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" v-model="joinAsSpectator" class="w-[18px] h-[18px] accent-accent cursor-pointer" />
+                  <span class="text-sm text-text-secondary">Join as spectator (watch only)</span>
                 </label>
               </div>
               <button
-                class="btn btn-primary"
+                class="inline-flex items-center justify-center gap-2 py-3 px-6 bg-gradient-to-br from-accent to-accent-strong text-white border border-accent rounded-pill font-semibold text-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 :disabled="!joinName.trim() || !joinCode.trim()"
                 @click="handleJoinRoom"
               >
@@ -248,62 +251,64 @@
       </div>
 
       <!-- Stage: Host Setup -->
-      <div v-else-if="stage === 'host-setup'" key="host-setup" class="stage-content">
+      <div v-else-if="stage === 'host-setup'" key="host-setup" class="flex flex-col gap-3">
         <!-- Header with Back, Sound, and Settings -->
-        <div class="stage-header">
-          <button class="back-btn" @click="goBack">
+        <div class="flex justify-between items-center gap-3 mb-2">
+          <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="goBack">
             <span>&larr;</span>
             <span>Back</span>
           </button>
-          <div class="header-actions">
-            <button class="settings-btn" @click="showSoundSettings = true">
+          <div class="flex items-center gap-2">
+            <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="showSoundSettings = true">
               <span>🔊</span>
               <span>Sound</span>
             </button>
-            <button class="settings-btn" @click="showOnlineSettings = true">
+            <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent hover:rotate-[15deg]" @click="showOnlineSettings = true">
               <span>⚙️</span>
               <span>Settings</span>
             </button>
           </div>
         </div>
 
-        <section class="config-section">
-          <div class="section-header centered">
-            <h2 class="section-title large">Host Online Game</h2>
+        <section class="bg-surface border border-border rounded-lg py-3 px-4">
+          <div class="mb-3 text-center">
+            <h2 class="m-0 font-display text-xl font-semibold text-text-primary">Host Online Game</h2>
           </div>
 
           <!-- Host Name -->
-          <div class="form-group">
-            <label for="host-name">Your Name</label>
+          <div class="flex flex-col gap-2 mb-3">
+            <label for="host-name" class="text-sm font-medium text-text-secondary">Your Name</label>
             <input
               id="host-name"
               v-model="hostName"
               type="text"
               placeholder="Enter your name"
               maxlength="20"
+              class="py-3 px-4 bg-bg-muted border-2 border-border rounded-md text-text-primary text-base outline-none transition-colors duration-200 focus:border-accent placeholder:text-text-tertiary"
             />
           </div>
         </section>
 
         <!-- Game Mode -->
-        <section class="config-section">
-          <div class="section-header">
-            <h3 class="section-title">Game Mode</h3>
-            <p class="section-description">Select your favorite mode</p>
+        <section class="bg-surface border border-border rounded-lg py-3 px-4">
+          <div class="mb-3">
+            <h3 class="m-0 font-display text-lg font-semibold text-text-primary">Game Mode</h3>
+            <p class="mt-1 mb-0 text-xs text-text-secondary">Select your favorite mode</p>
           </div>
-          <div class="presets-grid">
+          <div class="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <label v-for="preset in gamePresets" :key="preset.id"
-                   class="preset-card"
-                   :class="{ selected: isPresetSelected(preset) }">
+                   class="preset-card relative flex flex-col gap-3 p-4 bg-bg-muted border-4 border-border rounded-lg cursor-pointer transition-all duration-200 hover:border-accent hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg"
+                   :class="{ 'preset-selected': isPresetSelected(preset) }">
               <input type="radio"
                      :checked="isPresetSelected(preset)"
-                     @change="selectPreset(preset)" />
-              <div class="preset-icon">{{ preset.icon }}</div>
-              <div class="preset-info">
-                <h4 class="preset-name">{{ preset.name }}</h4>
-                <p class="preset-description">{{ preset.description }}</p>
-                <div v-if="preset.rules.length > 0" class="preset-tags">
-                  <span v-for="rule in preset.rules" :key="rule" class="tag">
+                     @change="selectPreset(preset)"
+                     class="hidden" />
+              <div class="text-[3.5rem] leading-none">{{ preset.icon }}</div>
+              <div class="flex flex-col gap-1">
+                <h4 class="m-0 text-base font-semibold text-text-primary">{{ preset.name }}</h4>
+                <p class="m-0 text-xs text-text-secondary leading-relaxed">{{ preset.description }}</p>
+                <div v-if="preset.rules.length > 0" class="flex flex-wrap gap-2">
+                  <span v-for="rule in preset.rules" :key="rule" class="py-1 px-3 bg-[rgba(99,102,241,0.15)] text-accent text-xs font-semibold rounded-pill">
                     {{ getRuleLabel(rule) }}
                   </span>
                 </div>
@@ -313,17 +318,17 @@
         </section>
 
         <!-- Create Room Button -->
-        <div class="stage-footer">
+        <div class="flex flex-col gap-3 items-center">
           <button
             @click="handleCreateRoom"
-            class="btn btn-primary btn-large btn-start-game"
+            class="py-6 px-12 text-xl font-semibold bg-gradient-to-br from-positive to-[#059669] text-white border border-positive rounded-pill shadow-[0_10px_30px_rgba(16,185,129,0.3)] transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(16,185,129,0.4)] hover:bg-gradient-to-br hover:from-[#059669] hover:to-[#047857] disabled:bg-gradient-to-br disabled:from-[#6b7280] disabled:to-[#4b5563] disabled:border-[#6b7280] disabled:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="!hostName.trim() || !selectedMode">
             <span>🚀 Create Room</span>
           </button>
-          <p v-if="!hostName.trim()" class="error-message">
+          <p v-if="!hostName.trim()" class="m-0 py-3 px-4 bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-md text-critical text-sm font-semibold">
             Please enter your name
           </p>
-          <p v-else-if="!selectedMode" class="error-message">
+          <p v-else-if="!selectedMode" class="m-0 py-3 px-4 bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-md text-critical text-sm font-semibold">
             Please select a game mode
           </p>
         </div>
@@ -658,80 +663,6 @@ const handleJoinRoom = () => {
 </script>
 
 <style scoped>
-.start-menu {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  max-width: 700px;
-  margin: 0 auto;
-}
-
-.stage-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* Stage Header */
-.stage-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
-
-.stage-header.justify-end {
-  justify-content: flex-end;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.back-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.back-btn:hover {
-  background: var(--color-surface-elevated);
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-}
-
-.settings-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.settings-btn:hover {
-  background: var(--color-surface-elevated);
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-  transform: rotate(15deg);
-}
-
 /* Transitions */
 .slide-fade-enter-active {
   transition: all 0.3s ease-out;
@@ -764,519 +695,51 @@ const handleJoinRoom = () => {
   margin-top: 0;
 }
 
-/* Sections */
-.config-section {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3) var(--space-4);
-}
-
-.mode-select-section {
-  background: linear-gradient(135deg, var(--color-surface), rgba(99, 102, 241, 0.05));
-}
-
-.section-header {
-  margin-bottom: var(--space-3);
-}
-
-.section-header.centered {
-  text-align: center;
-}
-
-.section-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.section-title.large {
-  font-size: var(--text-xl);
-}
-
-.section-description {
-  margin: var(--space-1) 0 0 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-}
-
-/* Mode Cards */
-.mode-cards {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-}
-
-.mode-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-5);
-  background: var(--color-surface-elevated);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: center;
-}
-
-.mode-card:hover {
-  border-color: var(--color-primary);
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.2);
-}
-
-.mode-card.ai-training-card {
-  grid-column: 1 / -1;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-  border-color: rgba(139, 92, 246, 0.3);
-}
-
-.mode-card.ai-training-card:hover {
-  border-color: #8b5cf6;
-  box-shadow: 0 12px 24px rgba(139, 92, 246, 0.25);
-}
-
-.mode-icon {
-  font-size: 2.5rem;
-}
-
-.mode-label {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.mode-desc {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
-
-/* Presets Grid */
-.presets-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-}
-
-.preset-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  background: var(--color-bg-muted);
-  border: 4px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.preset-card input {
-  display: none;
-}
-
-.preset-card:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.2);
-}
-
-.preset-card.selected {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.28), rgba(129, 140, 248, 0.22));
-  border-color: var(--color-accent);
-  border-width: 5px;
+/* Preset selected state */
+.preset-selected {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.28), rgba(129, 140, 248, 0.22)) !important;
+  border-color: var(--color-accent) !important;
+  border-width: 5px !important;
   box-shadow:
     0 20px 40px rgba(99, 102, 241, 0.35),
     0 0 0 4px rgba(99, 102, 241, 0.3),
-    0 0 60px rgba(99, 102, 241, 0.2);
-  transform: translateY(-6px) scale(1.03);
-  color: #eef2ff;
+    0 0 60px rgba(99, 102, 241, 0.2) !important;
+  transform: translateY(-6px) scale(1.03) !important;
+  color: #eef2ff !important;
 }
 
-.preset-card.selected .preset-description {
-  color: rgba(238, 242, 255, 0.85);
+.preset-selected p {
+  color: rgba(238, 242, 255, 0.85) !important;
 }
 
-.preset-card.selected .preset-name {
-  color: #ffffff;
-  font-size: 1.1rem;
+.preset-selected h4 {
+  color: #ffffff !important;
+  font-size: 1.1rem !important;
 }
 
-.preset-icon {
-  font-size: 3.5rem;
-  line-height: 1;
+/* AI toggle active */
+.ai-toggle-active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2)) !important;
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.3) !important;
 }
 
-.preset-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+/* AI player row */
+.ai-player-row {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08)) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
 }
 
-.preset-name {
-  margin: 0;
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.preset-description {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-}
-
-.preset-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.tag {
-  padding: 0.25rem 0.75rem;
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--color-accent);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  border-radius: var(--radius-pill);
-}
-
-/* Players List */
-.players-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.player-row {
-  display: grid;
-  grid-template-columns: 40px auto 1fr auto auto;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-3);
-  background: rgba(30, 30, 45, 0.5);
-  backdrop-filter: blur(12px);
-  border: 2px solid rgba(99, 102, 241, 0.3);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.player-row:hover {
-  border-color: rgba(99, 102, 241, 0.5);
-  background: rgba(40, 40, 60, 0.6);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
-  transform: translateY(-1px);
-}
-
-.player-badge {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  background: rgba(99, 102, 241, 0.2);
-  backdrop-filter: blur(8px);
-  color: rgba(167, 139, 250, 0.95);
-  font-weight: 700;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15);
-}
-
-.player-input {
-  padding: 0.75rem 1rem;
-  background: rgba(20, 20, 35, 0.4);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: var(--radius-md);
-  color: rgba(230, 230, 250, 0.95);
-  font-size: var(--text-md);
-  transition: all var(--transition-base);
-}
-
-.player-input:focus {
-  outline: none;
-  border-color: rgba(99, 102, 241, 0.6);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-  background: rgba(25, 25, 40, 0.5);
-}
-
-.player-input::placeholder {
-  color: rgba(150, 150, 170, 0.6);
-}
-
-.btn-remove {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: var(--radius-md);
-  color: var(--color-critical);
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.btn-remove:hover {
-  background: rgba(239, 68, 68, 0.2);
-  transform: scale(1.1);
-}
-
-.add-player-btn {
-  align-self: flex-start;
-}
-
-/* AI Controls */
-.ai-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.ai-toggle {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 1.25rem;
-  transition: all var(--transition-base);
-}
-
-.ai-toggle:hover {
-  border-color: var(--color-accent);
-  transform: scale(1.05);
-}
-
-.ai-toggle.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
-  border-color: var(--color-accent);
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
-}
-
-.ai-difficulty-select {
-  padding: 0.5rem 0.75rem;
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.ai-difficulty-select:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.player-row.ai-player {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
-  border-color: rgba(99, 102, 241, 0.4);
-}
-
-.player-row.ai-player .player-input {
+.ai-player-row input {
   opacity: 0.7;
 }
 
-/* AI Model Status */
-.ai-model-status {
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border-radius: var(--radius-md);
-  text-align: center;
-  font-size: var(--text-sm);
+/* Player row grid */
+.player-row {
+  grid-template-columns: 40px auto 1fr auto auto;
 }
 
-.model-trained {
-  color: #22c55e;
-}
-
-.model-untrained {
-  color: #f59e0b;
-}
-
-/* Form Groups */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.form-group label {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-
-.form-group input[type="text"] {
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: var(--text-base);
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.form-group input[type="text"]:focus {
-  border-color: var(--color-primary);
-}
-
-.form-group input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.code-input {
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-family: monospace;
-  font-size: var(--text-lg) !important;
-  text-align: center;
-}
-
-/* Join Form Section */
-.join-form-section {
-  margin-top: var(--space-3);
-}
-
-.join-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-/* Spectator Option */
-.spectator-option {
-  margin-top: var(--space-1);
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--color-primary);
-  cursor: pointer;
-}
-
-.checkbox-text {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
-
-/* Stage Footer */
-.stage-footer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-/* Buttons */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-  font-size: var(--text-md);
-  transition: all var(--transition-base);
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-strong));
-  color: white;
-  border-color: var(--color-accent);
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: var(--color-surface);
-  border-color: var(--color-border);
-  color: var(--color-text-primary);
-}
-
-.btn-secondary:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
-}
-
-.btn-large {
-  padding: 1rem 2rem;
-  font-size: var(--text-lg);
-}
-
-.btn-start-game {
-  padding: 1.5rem 3rem;
-  font-size: 1.25rem;
-  background: linear-gradient(135deg, #10b981, #059669);
-  border-color: #10b981;
-  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
-}
-
-.btn-start-game:hover:not(:disabled) {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 15px 40px rgba(16, 185, 129, 0.4);
-  background: linear-gradient(135deg, #059669, #047857);
-}
-
-.btn-start-game:disabled {
-  background: linear-gradient(135deg, #6b7280, #4b5563);
-  border-color: #6b7280;
-  box-shadow: none;
-}
-
-.error-message {
-  margin: 0;
-  padding: 0.75rem 1rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: var(--radius-md);
-  color: var(--color-critical);
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-
-/* Responsive */
 @media (max-width: 600px) {
-  .mode-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .presets-grid {
-    grid-template-columns: 1fr;
-  }
-
   .player-row {
     grid-template-columns: 40px 1fr;
     grid-template-rows: auto auto;
@@ -1284,10 +747,6 @@ const handleJoinRoom = () => {
 
   .player-row > :nth-child(3) {
     grid-column: span 2;
-  }
-
-  .stage-header {
-    flex-wrap: wrap;
   }
 }
 </style>
