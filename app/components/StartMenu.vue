@@ -3,10 +3,14 @@
     <Transition name="slide-fade" mode="out-in">
       <!-- Stage: Online Selection (Home) -->
       <div v-if="stage === 'online-select'" key="online-select" class="flex flex-col gap-3">
-        <!-- Header with Sound only (no back button - this is home) -->
-        <div class="flex justify-end items-center gap-3 mb-2">
+        <!-- Header with Sound and Help (no back button - this is home) -->
+        <div class="flex justify-end items-center gap-2 mb-2">
+          <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="showHelpModal = true">
+            <QuestionMarkCircleIcon class="w-5 h-5" />
+            <span>Help</span>
+          </button>
           <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="showSoundSettings = true">
-            <span>🔊</span>
+            <SpeakerWaveIcon class="w-5 h-5" />
             <span>Sound</span>
           </button>
         </div>
@@ -18,12 +22,12 @@
           </div>
           <div class="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <button class="flex flex-col items-center gap-2 p-5 bg-surface-elevated border-2 border-border rounded-lg cursor-pointer transition-all duration-200 text-center shadow-sm hover:border-accent hover:-translate-y-1 hover:shadow-lg" @click="selectHostMode">
-              <span class="text-[2.5rem]">🎯</span>
+              <TargetIcon :size="40" :stroke-width="2" class="text-accent" />
               <span class="text-lg font-semibold text-text-primary">Host Game</span>
               <span class="text-xs text-text-tertiary">Create a room and invite friends</span>
             </button>
             <button class="flex flex-col items-center gap-2 p-5 bg-surface-elevated border-2 border-border rounded-lg cursor-pointer transition-all duration-200 text-center shadow-sm hover:border-accent hover:-translate-y-1 hover:shadow-lg" @click="handleJoinGameClick" :class="{ expanded: joinFormExpanded }">
-              <span class="text-[2.5rem]">🔗</span>
+              <LinkIcon class="w-10 h-10 text-accent" />
               <span class="text-lg font-semibold text-text-primary">Join Game</span>
               <span class="text-xs text-text-tertiary">Enter a room code to join</span>
             </button>
@@ -64,19 +68,23 @@
 
       <!-- Stage: Host Setup -->
       <div v-else-if="stage === 'host-setup'" key="host-setup" class="flex flex-col gap-3">
-        <!-- Header with Back, Sound, and Settings -->
+        <!-- Header with Back, Help, Sound, and Settings -->
         <div class="flex justify-between items-center gap-3 mb-2">
           <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="goBack">
             <span>&larr;</span>
             <span>Back</span>
           </button>
           <div class="flex items-center gap-2">
+            <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="showHelpModal = true">
+              <QuestionMarkCircleIcon class="w-5 h-5" />
+              <span>Help</span>
+            </button>
             <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="showSoundSettings = true">
-              <span>🔊</span>
+              <SpeakerWaveIcon class="w-5 h-5" />
               <span>Sound</span>
             </button>
             <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent hover:rotate-[15deg]" @click="showOnlineSettings = true">
-              <span>⚙️</span>
+              <Cog6ToothIcon class="w-5 h-5" />
               <span>Settings</span>
             </button>
           </div>
@@ -114,7 +122,7 @@
               :class="{ 'role-selected': !hostSpectating }"
               @click="hostSpectating = false; playSound('buttonClick')"
             >
-              <span class="text-3xl">🎮</span>
+              <PlayIcon class="w-8 h-8 text-accent" />
               <span class="text-base font-semibold text-text-primary">Play</span>
               <span class="text-xs text-text-secondary text-center">Join the game as a player</span>
             </button>
@@ -124,7 +132,7 @@
               :class="{ 'role-selected': hostSpectating }"
               @click="hostSpectating = true; playSound('buttonClick')"
             >
-              <span class="text-3xl">👀</span>
+              <EyeIcon class="w-8 h-8 text-accent" />
               <span class="text-base font-semibold text-text-primary">Spectate</span>
               <span class="text-xs text-text-secondary text-center">Watch the game unfold</span>
             </button>
@@ -156,7 +164,8 @@
             @click="handleCreateRoom"
             class="py-6 px-12 text-xl font-semibold bg-gradient-to-br from-positive to-[#059669] text-white border border-positive rounded-pill shadow-[0_10px_30px_rgba(16,185,129,0.3)] transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(16,185,129,0.4)] hover:bg-gradient-to-br hover:from-[#059669] hover:to-[#047857] disabled:bg-gradient-to-br disabled:from-[#6b7280] disabled:to-[#4b5563] disabled:border-[#6b7280] disabled:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="!hostName.trim()">
-            <span>🚀 Create Room</span>
+            <RocketLaunchIcon class="w-6 h-6 inline-block mr-2" />
+            <span>Create Room</span>
           </button>
           <p v-if="!hostName.trim()" class="m-0 py-3 px-4 bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-md text-critical text-sm font-semibold">
             Please enter your name
@@ -176,6 +185,11 @@
       :is-open="showSoundSettings"
       @close="showSoundSettings = false"
     />
+
+    <HelpModal
+      :is-open="showHelpModal"
+      @close="showHelpModal = false"
+    />
   </div>
 </template>
 
@@ -183,7 +197,18 @@
 import { ref } from 'vue'
 import OnlineSettingsPopup from './OnlineSettingsPopup.vue'
 import SoundSettingsPopup from './SoundSettingsPopup.vue'
+import HelpModal from './HelpModal.vue'
 import { useSound } from '~/composables/useSound'
+import {
+  QuestionMarkCircleIcon,
+  SpeakerWaveIcon,
+  LinkIcon,
+  Cog6ToothIcon,
+  PlayIcon,
+  EyeIcon,
+  RocketLaunchIcon
+} from '@heroicons/vue/24/outline'
+import TargetIcon from './icons/TargetIcon.vue'
 
 export interface OnlineHostSettings {
   hostName: string
@@ -206,6 +231,7 @@ const stage = ref<Stage>('online-select')
 // Settings modals
 const showOnlineSettings = ref(false)
 const showSoundSettings = ref(false)
+const showHelpModal = ref(false)
 
 // Host settings (locked after room creation)
 const hostSpectating = ref(false)

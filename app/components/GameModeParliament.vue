@@ -3,7 +3,10 @@
     <div class="parliament-popup bg-gradient-to-br from-[rgba(255,255,255,0.98)] to-[rgba(240,240,255,0.95)] rounded-3xl p-8 max-w-[90vw] max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.5),inset_0_0_60px_rgba(255,255,255,0.3)] animate-[popupSlideIn_0.4s_cubic-bezier(0.34,1.56,0.64,1)]" @click.stop>
       <!-- Header -->
       <div class="text-center mb-8">
-        <h2 class="text-[2rem] font-extrabold bg-gradient-to-r from-[#8a2be2] via-[#ff7730] to-[#ff1493] bg-clip-text text-transparent m-0">🏛️ Game Presets Gallery</h2>
+        <h2 class="text-[2rem] font-extrabold bg-gradient-to-r from-[#8a2be2] via-[#ff7730] to-[#ff1493] bg-clip-text text-transparent m-0 flex items-center justify-center gap-3">
+          <BuildingLibraryIcon class="w-8 h-8 text-[#8a2be2]" />
+          <span>Game Presets Gallery</span>
+        </h2>
         <p class="text-[#666] text-base mt-2 mb-0 italic">Choose a preset combination or create your own</p>
       </div>
 
@@ -14,12 +17,15 @@
              :class="{ disabled: preset.disabled, favorite: isFavorite(preset.id) }"
              @click="selectPreset(preset)">
           <div class="flex items-center justify-between mb-4">
-            <div class="text-[2.5rem] w-[60px] h-[60px] flex items-center justify-center bg-gradient-to-br from-[rgba(138,43,226,0.1)] to-[rgba(255,119,48,0.1)] rounded-xl">{{ preset.icon }}</div>
+            <div class="w-[60px] h-[60px] flex items-center justify-center bg-gradient-to-br from-[rgba(138,43,226,0.1)] to-[rgba(255,119,48,0.1)] rounded-xl">
+              <component :is="preset.iconComponent" class="w-10 h-10 text-[#8a2be2]" :size="40" :stroke-width="2" />
+            </div>
             <button v-if="!preset.disabled"
                     @click.stop="toggleFavorite(preset.id)"
-                    class="favorite-btn bg-transparent border-none text-2xl cursor-pointer transition-all duration-300 p-1 opacity-30 hover:opacity-100 hover:scale-[1.2]"
+                    class="favorite-btn bg-transparent border-none cursor-pointer transition-all duration-300 p-1 opacity-30 hover:opacity-100 hover:scale-[1.2]"
                     :class="{ active: isFavorite(preset.id) }">
-              {{ isFavorite(preset.id) ? '⭐' : '☆' }}
+              <StarIconSolid v-if="isFavorite(preset.id)" class="w-6 h-6 text-[#fbbf24]" />
+              <StarIcon v-else class="w-6 h-6 text-[#8a2be2]" />
             </button>
           </div>
           <div class="flex flex-col gap-3">
@@ -47,7 +53,7 @@
       <!-- Controls -->
       <div class="flex justify-center gap-4 pt-4 border-t-2 border-[rgba(138,43,226,0.1)]">
         <button @click="$emit('close')" class="flex items-center gap-2 py-3 px-6 text-base font-semibold border-2 border-transparent rounded-xl cursor-pointer transition-all duration-300 bg-gradient-to-br from-[#667eea] to-[#764ba2] text-white hover:-translate-y-0.5 hover:bg-gradient-to-br hover:from-[#7788ff] hover:to-[#8855cc] hover:shadow-[0_5px_15px_rgba(138,43,226,0.2)]">
-          <span class="text-[1.2rem]">🚪</span>
+          <ArrowRightOnRectangleIcon class="w-5 h-5" />
           <span>Close</span>
         </button>
       </div>
@@ -56,12 +62,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, type Component } from 'vue'
+import {
+  BuildingLibraryIcon,
+  StarIcon,
+  ArrowRightOnRectangleIcon,
+  ArrowDownIcon,
+  BoltIcon,
+  HeartIcon,
+  FireIcon,
+  TrophyIcon,
+  ForwardIcon,
+  MapIcon,
+  ArrowPathRoundedSquareIcon
+} from '@heroicons/vue/24/outline'
+import { StarIcon as StarIconSolid } from '@heroicons/vue/24/solid'
+import TargetIcon from './icons/TargetIcon.vue'
 
 interface GamePreset {
   id: string
   name: string
-  icon: string
+  iconComponent: Component
   description: string
   gameMode: 'classic' | 'kingofthehill' | 'territory' | 'chainreaction'
   rules: string[]
@@ -85,7 +106,7 @@ const presets: GamePreset[] = [
   {
     id: 'classic',
     name: 'Classic',
-    icon: '🎯',
+    iconComponent: TargetIcon,
     description: 'Pure strategy. Infinite expansion with unlimited time.',
     gameMode: 'classic',
     rules: []
@@ -93,7 +114,7 @@ const presets: GamePreset[] = [
   {
     id: 'classic-gravity',
     name: 'Classic Gravity',
-    icon: '⬇️',
+    iconComponent: ArrowDownIcon,
     description: 'Connect Four meets Tic-Tac-Toe. Pieces fall to the ground.',
     gameMode: 'classic',
     rules: ['gravity']
@@ -101,7 +122,7 @@ const presets: GamePreset[] = [
   {
     id: 'speed-classic',
     name: 'Speed Classic',
-    icon: '⚡',
+    iconComponent: BoltIcon,
     description: 'Fast-paced classic. 10 seconds per move keeps the pressure on.',
     gameMode: 'classic',
     rules: ['timeLimit'],
@@ -110,7 +131,7 @@ const presets: GamePreset[] = [
   {
     id: 'blitz',
     name: 'Blitz Mode',
-    icon: '💨',
+    iconComponent: BoltIcon,
     description: 'Lightning fast! Only 5 seconds to make your move.',
     gameMode: 'classic',
     rules: ['timeLimit'],
@@ -119,7 +140,7 @@ const presets: GamePreset[] = [
   {
     id: 'zen',
     name: 'Zen Mode',
-    icon: '🧘',
+    iconComponent: HeartIcon,
     description: 'Take your time. One minute per move for deep strategy.',
     gameMode: 'classic',
     rules: ['timeLimit'],
@@ -128,7 +149,7 @@ const presets: GamePreset[] = [
   {
     id: 'gravity-blitz',
     name: 'Gravity Blitz',
-    icon: '💥',
+    iconComponent: FireIcon,
     description: 'Gravity physics with 5 second turns. Think fast, drop faster!',
     gameMode: 'classic',
     rules: ['gravity', 'timeLimit'],
@@ -137,7 +158,7 @@ const presets: GamePreset[] = [
   {
     id: 'king-of-the-hill',
     name: 'King of the Hill',
-    icon: '👑',
+    iconComponent: TrophyIcon,
     description: 'Control the center region to claim victory.',
     gameMode: 'kingofthehill',
     rules: []
@@ -145,7 +166,7 @@ const presets: GamePreset[] = [
   {
     id: 'king-rush',
     name: 'King Rush',
-    icon: '🏃',
+    iconComponent: ForwardIcon,
     description: 'Race to control the center with 10 second turns.',
     gameMode: 'kingofthehill',
     rules: ['timeLimit'],
@@ -154,7 +175,7 @@ const presets: GamePreset[] = [
   {
     id: 'gravity-king',
     name: 'Gravity King',
-    icon: '👑⬇️',
+    iconComponent: TrophyIcon,
     description: 'Control the center while pieces fall. Strategy meets physics.',
     gameMode: 'kingofthehill',
     rules: ['gravity']
@@ -162,7 +183,7 @@ const presets: GamePreset[] = [
   {
     id: 'territory',
     name: 'Territory Conquest',
-    icon: '🗺️',
+    iconComponent: MapIcon,
     description: 'Win by controlling the largest continuous region.',
     gameMode: 'territory',
     rules: [],
@@ -171,7 +192,7 @@ const presets: GamePreset[] = [
   {
     id: 'chain-reaction',
     name: 'Chain Reaction',
-    icon: '⚡',
+    iconComponent: BoltIcon,
     description: 'Trigger chain combos by placing near your clusters.',
     gameMode: 'chainreaction',
     rules: [],
@@ -180,7 +201,7 @@ const presets: GamePreset[] = [
   {
     id: 'chaos',
     name: 'Chaos Mode',
-    icon: '🌀',
+    iconComponent: ArrowPathRoundedSquareIcon,
     description: 'Everything at once! Gravity, mirrors, and 10s turns.',
     gameMode: 'classic',
     rules: ['gravity', 'mirror', 'timeLimit'],

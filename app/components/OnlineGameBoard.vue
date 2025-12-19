@@ -55,6 +55,8 @@ const boardViewport = ref<HTMLElement | null>(null)
 const lastPlacedCell = ref<Position | null>(null)
 const viewportWidth = ref<number>(typeof window !== 'undefined' ? window.innerWidth : 1280)
 const viewportHeight = ref<number>(typeof window !== 'undefined' ? window.innerHeight : 720)
+const viewportBounds = ref<{ width: number; height: number }>({ width: 0, height: 0 })
+let viewportResizeObserver: ResizeObserver | null = null
 
 // Online settings (expansion animation and blocked cell effects)
 const { expansionAnimationMode, cantPlaceEffects } = useOnlineSettings()
@@ -75,6 +77,8 @@ const prevBoardOffset = ref<{ row: number; col: number } | null>(null)
 const expandedEdges = ref<ExpandedEdges>({ top: false, bottom: false, left: false, right: false })
 const isAnimatingExpansion = ref(false)
 const expansionAnimationTimer = ref<NodeJS.Timeout | null>(null)
+const suppressSmoothScroll = ref(false)
+const pendingScrollTarget = ref<{ row: number; col: number } | null>(null)
 
 // Animation duration for expansion effects (400-800ms as per spec)
 const EXPANSION_ANIMATION_DURATION = 600 // ms
@@ -92,9 +96,12 @@ const cellSize = computed(() => {
   const gap = 8 // Gap between cells from CSS
   const padding = 32 // Board padding (var(--space-4) * 2)
 
-  // Get viewport dimensions (accounting for padding and margins)
-  const maxBoardWidth = Math.min(viewportWidth.value * 0.9, 720) // Match wrapper width constraint
-  const maxBoardHeight = Math.max(viewportHeight.value - 280, minCellSize) // Account for header, info, players, action bar
+  // Prefer the actual viewport element size if available; fall back to window
+  const availableWidth = viewportBounds.value.width || viewportWidth.value * 0.9
+  const availableHeight = viewportBounds.value.height || viewportHeight.value - 280
+
+  const maxBoardWidth = Math.max(Math.min(availableWidth * 0.98, 900), minCellSize)
+  const maxBoardHeight = Math.max(availableHeight, minCellSize)
 
   // Calculate board dimensions with initial cell size
   const boardWidth = boardSize.value.cols * initialCellSize + (boardSize.value.cols - 1) * gap + padding
@@ -186,6 +193,29 @@ function getRecencyLevel(row: number, col: number): number | null {
   if (index <= 17) return 3           // Moves 10-17: 85%
   if (index <= 30) return 4           // Moves 18-30: 70%
   return null                         // Older: 55% + 80% opacity
+}
+
+// Track positions of cells that belong to the local player ("you")
+const myCellPositions = computed(() => {
+  if (!myPlayer.value) return new Set<string>()
+  const myId = myPlayer.value.id
+  const positions = new Set<string>()
+
+  gameState.value?.moveHistory?.forEach((move) => {
+    if (move.playerId === myId) {
+      const logicalRow = boardOffset.value.row + move.row
+      const logicalCol = boardOffset.value.col + move.col
+      positions.add(`${logicalRow},${logicalCol}`)
+    }
+  })
+  return positions
+})
+
+// Check if a cell belongs to the local player
+function isMyCell(row: number, col: number): boolean {
+  const logicalRow = boardOffset.value.row + row
+  const logicalCol = boardOffset.value.col + col
+  return myCellPositions.value.has(`${logicalRow},${logicalCol}`)
 }
 
 const timerWarning = computed(() => {
@@ -346,6 +376,17 @@ async function scrollToCell(row: number, col: number) {
 
   const centerX = piecePixelX - (boardViewport.value.clientWidth / 2) + (cellSize.value / 2)
   const centerY = piecePixelY - (boardViewport.value.clientHeight / 2) + (cellSize.value / 2)
+
+  // If we're in the middle of an expansion, jump-scroll now and schedule a smooth scroll after
+  if (suppressSmoothScroll.value) {
+    pendingScrollTarget.value = { row, col }
+    boardViewport.value.scrollTo({
+      left: Math.max(0, centerX),
+      top: Math.max(0, centerY),
+      behavior: 'auto'
+    })
+    return
+  }
 
   boardViewport.value.scrollTo({
     left: Math.max(0, centerX),
@@ -514,6 +555,18 @@ onMounted(async () => {
     window.addEventListener('resize', updateViewportSize, { passive: true })
   }
 
+  // Observe viewport element to get precise available size (prevents oversize on large screens)
+  if (typeof ResizeObserver !== 'undefined' && boardViewport.value) {
+    viewportResizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      const box = entry?.contentBoxSize?.[0]
+      const width = box ? box.inlineSize : entry.contentRect.width
+      const height = box ? box.blockSize : entry.contentRect.height
+      viewportBounds.value = { width, height }
+    })
+    viewportResizeObserver.observe(boardViewport.value)
+  }
+
   // Setup touch event listeners with passive: false to allow preventDefault
   // This is required for proper pinch-zoom handling on mobile
   if (boardViewport.value) {
@@ -529,6 +582,10 @@ onMounted(async () => {
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateViewportSize)
+  }
+
+  if (viewportResizeObserver && boardViewport.value) {
+    viewportResizeObserver.unobserve(boardViewport.value)
   }
 
   // Remove touch event listeners
@@ -582,6 +639,11 @@ watch(
       // Set expanded edges for animation
       expandedEdges.value = newEdges
       isAnimatingExpansion.value = true
+      suppressSmoothScroll.value = true
+
+      if (boardViewport.value) {
+        boardViewport.value.style.scrollBehavior = 'auto'
+      }
 
       // Clear previous timer
       if (expansionAnimationTimer.value) {
@@ -592,6 +654,17 @@ watch(
       expansionAnimationTimer.value = setTimeout(() => {
         expandedEdges.value = { top: false, bottom: false, left: false, right: false }
         isAnimatingExpansion.value = false
+        suppressSmoothScroll.value = false
+
+        if (boardViewport.value) {
+          boardViewport.value.style.scrollBehavior = ''
+        }
+
+        if (pendingScrollTarget.value) {
+          const target = { ...pendingScrollTarget.value }
+          pendingScrollTarget.value = null
+          scrollToCell(target.row, target.col)
+        }
       }, EXPANSION_ANIMATION_DURATION)
     }
 
@@ -731,6 +804,7 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
             :style="{ '--expansion-delay': getExpansionAnimationDelay(rowIndex, colIndex) }"
             :data-symbol="cell ? cell.toLowerCase() : undefined"
             :data-recency="getRecencyLevel(rowIndex, colIndex)"
+            :data-mine="isMyCell(rowIndex, colIndex) || undefined"
             :disabled="!canClickCell(rowIndex, colIndex)"
             @click="handleCellClick(rowIndex, colIndex)"
             :initial="{ opacity: 1, scale: 1 }"
@@ -907,6 +981,25 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   opacity: 0.8;
 }
 
+/* Subtle pulse animation for your pieces */
+@keyframes myPiecePulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+.cell.filled[data-mine] {
+  animation: myPiecePulse 2.5s ease-in-out infinite;
+}
+
+/* Don't pulse winning cells (they have their own animation) */
+.cell.filled[data-mine].winning {
+  animation: winPulse 1s infinite;
+}
+
 /* Winning cell animation */
 .cell.winning {
   background: rgba(34, 197, 94, 0.15);
@@ -946,12 +1039,12 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
 
 /* Just placed animation */
 .cell.just-placed {
-  animation: cellAppear 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) both;
+  animation: cellAppear 0.6s cubic-bezier(0.45, 0, 0.2, 1.2) both;
 }
 
 @keyframes cellAppear {
   0% { transform: scale(0.3); opacity: 0; }
-  50% { transform: scale(1.15); }
+  50% { transform: scale(1.08); }
   100% { transform: scale(1); opacity: 1; }
 }
 
@@ -1020,7 +1113,7 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
 
 @keyframes boardStretch {
   0% { transform: scale(1); }
-  30% { transform: scale(1.03); }
+  30% { transform: scale(1); }
   100% { transform: scale(1); }
 }
 

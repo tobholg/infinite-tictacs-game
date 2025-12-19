@@ -69,29 +69,35 @@ export function useTouchBoard(options: TouchBoardOptions) {
       return getCellFromPoint(screenX, screenY)
     }
 
-    if (!boardElement.value || !boardViewport.value) return null
+    if (!boardElement.value) return null
 
-    const rect = boardViewport.value.getBoundingClientRect()
-    const scrollLeft = boardViewport.value.scrollLeft || 0
-    const scrollTop = boardViewport.value.scrollTop || 0
+    // Use board element's bounding rect directly - it already accounts for:
+    // - CSS transforms (scale, translate)
+    // - Scroll position of parent containers
+    // - Visual position on screen
+    const boardRect = boardElement.value.getBoundingClientRect()
 
-    // Point in viewport space (accounting for scroll), then invert board transform
-    const point = new DOMPoint(
-      screenX - rect.left + scrollLeft,
-      screenY - rect.top + scrollTop
-    )
+    // Calculate tap position relative to the board's visual (transformed) rect
+    const transformedX = screenX - boardRect.left
+    const transformedY = screenY - boardRect.top
 
-    const transform = getComputedStyle(boardElement.value).transform || 'matrix(1, 0, 0, 1, 0, 0)'
-    const matrix = new DOMMatrixReadOnly(transform)
-    const localPoint = point.matrixTransform(matrix.inverse())
+    // Convert from transformed (scaled) space to local board coordinates
+    // by dividing by the current zoom level
+    const localX = transformedX / zoomLevel.value
+    const localY = transformedY / zoomLevel.value
 
-    // Calculate cell indices (accounting for gap)
+    // Subtract board padding (p-4 = 16px in Tailwind) to get content coordinates
+    const BOARD_PADDING = 16
+    const contentX = localX - BOARD_PADDING
+    const contentY = localY - BOARD_PADDING
+
+    // Check if tap is within the content area (not in padding)
+    if (contentX < 0 || contentY < 0) return null
+
+    // Calculate cell indices (accounting for gap between cells)
     const cellWithGap = cellSize.value + GAP_SIZE
-    const col = Math.floor(localPoint.x / cellWithGap)
-    const row = Math.floor(localPoint.y / cellWithGap)
-
-    // Check if within valid bounds (will be validated by the game logic anyway)
-    if (row < 0 || col < 0) return null
+    const col = Math.floor(contentX / cellWithGap)
+    const row = Math.floor(contentY / cellWithGap)
 
     return { row, col }
   }

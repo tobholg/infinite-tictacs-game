@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Motion } from '@motionone/vue'
 import { useSound, type SoundCategory } from '~/composables/useSound'
+import { SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/vue/24/outline'
 
 interface Props {
   isOpen: boolean
@@ -67,7 +68,8 @@ function handleOverlayClick(e: MouseEvent) {
                   @click="toggleMute"
                   :title="soundSettings.muted ? 'Unmute' : 'Mute'"
                 >
-                  {{ soundSettings.muted ? '🔇' : '🔊' }}
+                  <SpeakerXMarkIcon v-if="soundSettings.muted" class="w-5 h-5" />
+                  <SpeakerWaveIcon v-else class="w-5 h-5" />
                 </button>
               </div>
               <div class="flex items-center gap-3">

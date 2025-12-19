@@ -4,7 +4,7 @@
       <div class="flex items-center justify-center flex-1">
         <component :is="getSymbolComponent(modelValue)" :size="28" :stroke-width="3" />
       </div>
-      <span class="picker-arrow text-[0.7rem] text-[rgba(167,139,250,0.9)] transition-transform duration-300" v-if="!disabled">▼</span>
+      <ChevronDownIcon v-if="!disabled" class="picker-arrow w-4 h-4 text-[rgba(167,139,250,0.9)] transition-transform duration-300" />
     </div>
     <div v-if="isOpen" class="picker-dropdown absolute top-[calc(100%+0.5rem)] left-0 min-w-[200px] bg-[rgba(25,25,40,0.85)] backdrop-blur-[20px] border-2 border-[rgba(99,102,241,0.4)] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.4),0_0_20px_rgba(99,102,241,0.2)] z-[100] p-2">
       <div v-for="symbol in availableSymbols" :key="symbol"
@@ -30,6 +30,7 @@ import CircleIcon from './icons/CircleIcon.vue'
 import PlusIcon from './icons/PlusIcon.vue'
 import HeartIcon from './icons/HeartIcon.vue'
 import PentagonIcon from './icons/PentagonIcon.vue'
+import { ChevronDownIcon } from '@heroicons/vue/24/outline'
 import type { PlayerSymbol } from '../../shared/types'
 
 interface Props {

@@ -2,6 +2,15 @@
 import { Motion } from '@motionone/vue'
 import { useTheme } from '~/composables/useTheme'
 import { useOnlineSettings, type ExpansionAnimationMode } from '~/composables/useOnlineSettings'
+import { type Component } from 'vue'
+import {
+  ArrowsRightLeftIcon,
+  SparklesIcon,
+  ArrowsPointingOutIcon,
+  MoonIcon,
+  Squares2X2Icon,
+  ExclamationTriangleIcon
+} from '@heroicons/vue/24/outline'
 
 interface Props {
   isOpen: boolean
@@ -20,23 +29,23 @@ const { themePreference, setPreference, isDecember } = useTheme()
 const { expansionAnimationMode, setExpansionAnimationMode, cantPlaceEffects, updateCantPlaceEffect } = useOnlineSettings()
 
 // Animation mode options
-const animationModes = [
+const animationModes: { value: ExpansionAnimationMode; label: string; iconComponent: Component; description: string }[] = [
   {
     value: 'A_slideOut' as ExpansionAnimationMode,
     label: 'Slide Out',
-    icon: '↔️',
+    iconComponent: ArrowsRightLeftIcon,
     description: 'New rows/columns slide in from edges (default)',
   },
   {
     value: 'B_popInTiles' as ExpansionAnimationMode,
     label: 'Pop In',
-    icon: '✨',
+    iconComponent: SparklesIcon,
     description: 'New tiles pop in with a gentle settle',
   },
   {
     value: 'C_stretchSettle' as ExpansionAnimationMode,
     label: 'Stretch',
-    icon: '📐',
+    iconComponent: ArrowsPointingOutIcon,
     description: 'Board stretches and settles with new tiles',
   },
 ]
@@ -78,19 +87,19 @@ function handleOverlayClick(e: MouseEvent) {
               <div class="grid grid-cols-3 gap-2 max-sm:grid-cols-1">
                 <label class="theme-option flex flex-col items-center gap-1 p-3 bg-bg-muted border-2 border-border rounded-md cursor-pointer transition-all duration-200 text-center hover:border-accent hover:-translate-y-0.5" :class="{ active: themePreference === 'auto' }">
                   <input type="radio" name="theme" value="auto" :checked="themePreference === 'auto'" @change="setPreference('auto')" class="hidden" />
-                  <span class="text-[1.75rem]">🎄</span>
+                  <SparklesIcon class="w-7 h-7 text-[#22c55e]" />
                   <span class="font-semibold text-sm text-text-primary">Auto</span>
                   <span class="text-xs text-text-tertiary">{{ isDecember ? 'Christmas active' : 'Default active' }}</span>
                 </label>
                 <label class="theme-option flex flex-col items-center gap-1 p-3 bg-bg-muted border-2 border-border rounded-md cursor-pointer transition-all duration-200 text-center hover:border-accent hover:-translate-y-0.5" :class="{ active: themePreference === 'christmas' }">
                   <input type="radio" name="theme" value="christmas" :checked="themePreference === 'christmas'" @change="setPreference('christmas')" class="hidden" />
-                  <span class="text-[1.75rem]">❄️</span>
+                  <SparklesIcon class="w-7 h-7 text-[#67e8f9]" />
                   <span class="font-semibold text-sm text-text-primary">Christmas</span>
                   <span class="text-xs text-text-tertiary">Always festive</span>
                 </label>
                 <label class="theme-option flex flex-col items-center gap-1 p-3 bg-bg-muted border-2 border-border rounded-md cursor-pointer transition-all duration-200 text-center hover:border-accent hover:-translate-y-0.5" :class="{ active: themePreference === 'default' }">
                   <input type="radio" name="theme" value="default" :checked="themePreference === 'default'" @change="setPreference('default')" class="hidden" />
-                  <span class="text-[1.75rem]">🌙</span>
+                  <MoonIcon class="w-7 h-7 text-[#a5b4fc]" />
                   <span class="font-semibold text-sm text-text-primary">Default</span>
                   <span class="text-xs text-text-tertiary">Classic neon</span>
                 </label>
@@ -116,7 +125,7 @@ function handleOverlayClick(e: MouseEvent) {
                     @change="setExpansionAnimationMode(mode.value)"
                     class="hidden"
                   />
-                  <span class="text-2xl flex-shrink-0">{{ mode.icon }}</span>
+                  <component :is="mode.iconComponent" class="w-6 h-6 flex-shrink-0 text-accent" />
                   <div class="flex flex-col gap-[2px]">
                     <span class="font-semibold text-sm text-text-primary">{{ mode.label }}</span>
                     <span class="text-xs text-text-secondary">{{ mode.description }}</span>
@@ -137,7 +146,7 @@ function handleOverlayClick(e: MouseEvent) {
                     @change="updateCantPlaceEffect('dimmedCells', ($event.target as HTMLInputElement).checked)"
                     class="hidden"
                   />
-                  <span class="text-2xl flex-shrink-0">🌘</span>
+                  <MoonIcon class="w-6 h-6 flex-shrink-0 text-[#a5b4fc]" />
                   <div class="flex-1 flex flex-col gap-1">
                     <h4 class="m-0 text-sm font-semibold text-text-primary">Dimmed Cells</h4>
                     <p class="m-0 text-xs text-text-secondary leading-[1.4]">Lower opacity on unavailable cells for subtle depth</p>
@@ -151,7 +160,7 @@ function handleOverlayClick(e: MouseEvent) {
                     @change="updateCantPlaceEffect('stripedPattern', ($event.target as HTMLInputElement).checked)"
                     class="hidden"
                   />
-                  <span class="text-2xl flex-shrink-0">▧</span>
+                  <Squares2X2Icon class="w-6 h-6 flex-shrink-0 text-[#c4b5fd]" />
                   <div class="flex-1 flex flex-col gap-1">
                     <h4 class="m-0 text-sm font-semibold text-text-primary">Striped Pattern</h4>
                     <p class="m-0 text-xs text-text-secondary leading-[1.4]">Diagonal lines to clearly mark blocked zones</p>
@@ -165,7 +174,7 @@ function handleOverlayClick(e: MouseEvent) {
                     @change="updateCantPlaceEffect('warningIcon', ($event.target as HTMLInputElement).checked)"
                     class="hidden"
                   />
-                  <span class="text-2xl flex-shrink-0">⚠️</span>
+                  <ExclamationTriangleIcon class="w-6 h-6 flex-shrink-0 text-[#fcd34d]" />
                   <div class="flex-1 flex flex-col gap-1">
                     <h4 class="m-0 text-sm font-semibold text-text-primary">Warning Badge</h4>
                     <p class="m-0 text-xs text-text-secondary leading-[1.4]">Show indicator icon on non-playable cells</p>

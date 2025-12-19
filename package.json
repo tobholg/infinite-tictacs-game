@@ -15,6 +15,7 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@heroicons/vue": "^2.2.0",
     "@motionone/vue": "^10.16.4",
     "howler": "^2.2.4",
     "motion": "^12.23.24",

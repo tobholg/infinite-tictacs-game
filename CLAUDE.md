@@ -9,7 +9,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ```bash
-# Start development server (requires Node v20.19.0, runs on port 3001)
+# Start both frontend AND server together (recommended)
+npm run dev:all
+
+# Start both with network access (for phone testing)
+npm run dev:all:host
+
+# Start frontend only (requires Node v20.19.0, runs on port 3001)
 source ~/.nvm/nvm.sh && nvm use && npm run dev
 
 # Build for production
@@ -20,6 +26,24 @@ npm run preview
 
 # Generate static site
 npm run generate
+```
+
+### Server Commands
+
+```bash
+cd server
+
+# Start dev server (port 3002)
+npm run dev
+
+# Run tests
+npm run test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Build TypeScript
+npm run build
 ```
 
 ## Quick Start: Running the Full Game
@@ -120,10 +144,17 @@ app/                           # Frontend (Nuxt/Vue)
 server/                        # Multiplayer Server (Socket.IO)
 ├── src/
 │   ├── index.ts               # Server entry point (Express + Socket.IO)
+│   ├── ai/
+│   │   ├── ServerAI.ts        # Server-side AI opponent logic
+│   │   └── QLearningServer.ts # Q-Learning AI implementation
 │   ├── rooms/
-│   │   └── RoomStore.ts       # Room management and storage
-│   └── socket/
-│       └── handlers.ts        # Socket event handlers
+│   │   ├── RoomStore.ts       # Room management and storage
+│   │   ├── RoomStateMachine.ts # Room state transitions
+│   │   └── RoomCodeGenerator.ts # 6-letter room code generation
+│   ├── socket/
+│   │   └── handlers.ts        # Socket event handlers
+│   └── utils/
+│       └── RateLimiter.ts     # Rate limiting for socket events
 └── package.json               # Server dependencies
 
 shared/                        # Shared Types
@@ -143,9 +174,20 @@ shared/                        # Shared Types
 
 #### Component Hierarchy
 1. **app.vue** - Mounts SnowEffect and TicTacToe
-2. **TicTacToe.vue** - Manages game state (started/not started), renders StartMenu or GameBoard
-3. **StartMenu.vue** - Configures players, game modes, rules, visual settings
-4. **GameBoard.vue** - Handles game logic, board expansion, win detection, move history
+2. **TicTacToe.vue** - Manages game state (started/not started), renders StartMenu or GameBoard/OnlineLobby
+3. **StartMenu.vue** - Online game setup: Host/Join selection, host name, role (Play/Spectate), allow spectators
+4. **OnlineLobby.vue** - Room lobby: player list, game mode selection (host only), character picker, start game
+5. **OnlineGameBoard.vue** - Online multiplayer game board with real-time sync
+6. **GameBoard.vue** - Handles local game logic, board expansion, win detection, move history
+
+#### Online Game Flow
+1. **StartMenu**: Host enters name, chooses role (Play/Spectate), toggles Allow Spectators → Creates room
+2. **OnlineLobby**: Players join via 6-letter code, pick characters. Host selects game mode (Classic/Speed Classic) and clicks Apply
+3. **OnlineGameBoard**: Game in progress with real-time move sync
+
+**Key constraints:**
+- Host Role and Allow Spectators are **locked after room creation** (set in StartMenu)
+- Game Mode can be changed in lobby by host until game starts
 
 #### Theme System
 - **useTheme composable** - Manages theme preference with localStorage persistence
@@ -185,15 +227,16 @@ shared/                        # Shared Types
 - Creates a potentially infinite playing field
 
 ### Win Conditions
-- Default: 3 in a row (horizontal, vertical, or diagonal)
+- Default: 4 in a row (horizontal, vertical, or diagonal)
 - Configurable win length through game modes
 - Win detection dynamically scans the entire expanded board
 
-### Game Modes & Rules
-- Multiple preset game modes with configurable rules
-- Favorites system for quick access to preferred modes
-- Visual settings: theme selection, "can't place" effects (dimmed cells, striped pattern, warning icon)
-- Time limits configurable per game
+### Game Modes
+Two built-in modes:
+- **Classic**: Get 4 in a row to win, no time limit
+- **Speed Classic**: Get 4 in a row to win, 5 seconds per turn
+
+Host selects mode in the lobby before starting the game.
 
 ### Visual Effects for Invalid Moves
 Three configurable effects for cells where players cannot place:

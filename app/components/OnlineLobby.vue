@@ -1,9 +1,21 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, type Component } from 'vue'
 import { Motion } from '@motionone/vue'
 import { useOnlineGame } from '~/composables/useOnlineGame'
 import { useSound } from '~/composables/useSound'
 import type { AIDifficulty } from '../../shared/types'
+import {
+  QuestionMarkCircleIcon,
+  ClipboardDocumentIcon,
+  ClipboardDocumentCheckIcon,
+  XMarkIcon,
+  ClockIcon,
+  EyeIcon,
+  PlayIcon,
+  BoltIcon,
+  Cog6ToothIcon
+} from '@heroicons/vue/24/outline'
+import TargetIcon from './icons/TargetIcon.vue'
 
 // Components
 import XIcon from './icons/XIcon.vue'
@@ -16,6 +28,9 @@ import CircleIcon from './icons/CircleIcon.vue'
 import PlusIcon from './icons/PlusIcon.vue'
 import HeartIcon from './icons/HeartIcon.vue'
 import PentagonIcon from './icons/PentagonIcon.vue'
+import HelpModal from './HelpModal.vue'
+
+const showHelpModal = ref(false)
 
 const emit = defineEmits<{
   backToMenu: []
@@ -79,7 +94,7 @@ const spectatorChoice = ref(false)
 interface GamePreset {
   id: string
   name: string
-  icon: string
+  iconComponent: Component
   description: string
   winLength: number
   timeLimit?: number | null
@@ -89,16 +104,16 @@ const gamePresets: GamePreset[] = [
   {
     id: 'classic',
     name: 'Classic',
-    icon: '🎯',
-    description: 'Pure strategy with unlimited time and infinite expansion.',
+    iconComponent: TargetIcon,
+    description: 'Get 4 in a row to win. No time limit - think carefully!',
     winLength: 4,
     timeLimit: null,
   },
   {
     id: 'speed-classic',
     name: 'Speed Classic',
-    icon: '⚡',
-    description: 'Fast-paced classic. 5 seconds per move keeps the pressure on.',
+    iconComponent: BoltIcon,
+    description: 'Get 4 in a row to win. 5 seconds per turn - think fast!',
     winLength: 4,
     timeLimit: 5,
   },
@@ -115,7 +130,7 @@ const pendingRulesUpdate = ref<{ winLength: number; timeLimit: number | null } |
 
 // Get current game mode from rules (for non-hosts)
 const currentGameMode = computed(() => {
-  if (!rules.value) return { name: 'Classic', icon: '🎯', description: 'Unlimited time' }
+  if (!rules.value) return { name: 'Classic', iconComponent: TargetIcon, description: 'Get 4 in a row to win. No time limit.' }
 
   // Match rules to a preset
   const preset = gamePresets.find(p =>
@@ -124,17 +139,17 @@ const currentGameMode = computed(() => {
   )
 
   if (preset) {
-    return { name: preset.name, icon: preset.icon, description: preset.description }
+    return { name: preset.name, iconComponent: preset.iconComponent, description: preset.description }
   }
 
   // Custom rules
   const timeLimitText = rules.value.timeLimit
     ? `${rules.value.timeLimit}s per turn`
-    : 'Unlimited time'
+    : 'No time limit'
   return {
     name: 'Custom',
-    icon: '⚙️',
-    description: `${rules.value.winLength} in a row, ${timeLimitText}`
+    iconComponent: Cog6ToothIcon,
+    description: `Get ${rules.value.winLength} in a row to win. ${timeLimitText}.`
   }
 })
 
@@ -332,9 +347,15 @@ function handleSkipNameSetup() {
         <span>&larr;</span>
         <span>Back</span>
       </button>
-      <div class="connection-status flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-xs text-text-muted" :class="{ connected: isConnected }">
-        <span class="status-dot w-2 h-2 rounded-full"></span>
-        <span>{{ isConnected ? 'Connected' : 'Connecting...' }}</span>
+      <div class="flex items-center gap-2">
+        <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="showHelpModal = true">
+          <QuestionMarkCircleIcon class="w-5 h-5" />
+          <span>Help</span>
+        </button>
+        <div class="connection-status flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-xs text-text-muted" :class="{ connected: isConnected }">
+          <span class="status-dot w-2 h-2 rounded-full"></span>
+          <span>{{ isConnected ? 'Connected' : 'Connecting...' }}</span>
+        </div>
       </div>
     </div>
 
@@ -376,12 +397,13 @@ function handleSkipNameSetup() {
         <div class="flex items-center justify-center gap-3 my-3">
           <span class="font-mono text-[clamp(2rem,8vw,3rem)] font-bold tracking-[0.15em] text-primary">{{ roomCode }}</span>
           <button
-            class="copy-btn w-11 h-11 grid place-items-center bg-bg-muted border border-border rounded-md text-text-secondary text-[1.2rem] cursor-pointer transition-all duration-200 hover:bg-primary hover:border-primary hover:text-white"
+            class="copy-btn w-11 h-11 grid place-items-center bg-bg-muted border border-border rounded-md text-text-secondary cursor-pointer transition-all duration-200 hover:bg-primary hover:border-primary hover:text-white"
             @click="copyRoomCode"
             :class="{ copied: codeCopied }"
             :title="codeCopied ? 'Copied!' : 'Copy code'"
           >
-            {{ codeCopied ? '✓' : '📋' }}
+            <ClipboardDocumentCheckIcon v-if="codeCopied" class="w-6 h-6" />
+            <ClipboardDocumentIcon v-else class="w-6 h-6" />
           </button>
         </div>
         <p class="m-0 text-sm text-text-muted">Share this code with friends to join the game</p>
@@ -415,9 +437,9 @@ function handleSkipNameSetup() {
             <div class="flex-1 min-w-0">
               <span class="block font-semibold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
                 {{ player.name }}
-                <span v-if="player.id === hostId" class="font-normal text-[#fcd34d] ml-1">(Host)</span>
               </span>
               <div class="flex flex-wrap gap-1 mt-1">
+                <span v-if="player.id === hostId" class="badge py-[2px] px-2 text-xs font-semibold rounded-sm uppercase bg-[rgba(251,191,36,0.2)] text-[#fcd34d]">Host</span>
                 <span v-if="player.id === playerId" class="badge py-[2px] px-2 text-xs font-semibold rounded-sm uppercase bg-[rgba(99,102,241,0.2)] text-[#a5b4fc]">You</span>
                 <span v-if="player.isAI" class="badge py-[2px] px-2 text-xs font-semibold rounded-sm uppercase bg-[rgba(139,92,246,0.2)] text-[#c4b5fd]">
                   AI ({{ getDifficultyLabel(player.aiDifficulty || 'medium') }})
@@ -427,18 +449,18 @@ function handleSkipNameSetup() {
             </div>
             <button
               v-if="isHost && player.isAI"
-              class="w-8 h-8 grid place-items-center bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-sm text-[#fca5a5] text-base cursor-pointer transition-all duration-200 shrink-0 hover:bg-[rgba(239,68,68,0.2)] hover:text-[#f87171]"
+              class="w-8 h-8 grid place-items-center bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-sm text-[#fca5a5] cursor-pointer transition-all duration-200 shrink-0 hover:bg-[rgba(239,68,68,0.2)] hover:text-[#f87171]"
               @click="handleRemoveAI(player.id)"
               title="Remove bot"
             >
-              ✕
+              <XMarkIcon class="w-5 h-5" />
             </button>
           </Motion>
 
           <!-- Empty slot placeholder when waiting -->
           <div v-if="activePlayers.length < 2" class="flex items-center gap-3 p-3 bg-bg-muted border-2 border-dashed border-border rounded-md justify-center min-h-[70px]">
             <div class="flex items-center gap-2 text-text-muted">
-              <span class="text-[1.25rem]">⏳</span>
+              <ClockIcon class="w-5 h-5" />
               <span class="text-sm">Waiting for players to join...</span>
             </div>
           </div>
@@ -459,7 +481,7 @@ function handleSkipNameSetup() {
             :class="{ selected: selectedPresetId === preset.id, applied: appliedPresetId === preset.id }"
             @click="selectGamePreset(preset.id)"
           >
-            <span class="text-[2rem]">{{ preset.icon }}</span>
+            <component :is="preset.iconComponent" class="w-8 h-8 text-accent" :size="32" :stroke-width="2" />
             <span class="text-base font-semibold text-text-primary">{{ preset.name }}</span>
             <span class="text-xs text-text-muted leading-[1.4]">{{ preset.description }}</span>
             <span v-if="preset.timeLimit" class="mt-1 py-[2px] px-2 bg-[rgba(99,102,241,0.15)] text-accent text-xs font-semibold rounded-full">{{ preset.timeLimit }}s turns</span>
@@ -482,7 +504,7 @@ function handleSkipNameSetup() {
           <h3 class="m-0 font-display text-lg font-semibold text-text-primary">Game Mode</h3>
         </div>
         <div class="flex items-center gap-3 p-3 bg-bg-muted border-2 border-border rounded-md">
-          <span class="text-[2rem] shrink-0">{{ currentGameMode.icon }}</span>
+          <component :is="currentGameMode.iconComponent" class="w-8 h-8 text-accent shrink-0" :size="32" :stroke-width="2" />
           <div class="flex flex-col gap-1">
             <span class="text-base font-semibold text-text-primary">{{ currentGameMode.name }}</span>
             <span class="text-sm text-text-muted">{{ currentGameMode.description }}</span>
@@ -552,7 +574,7 @@ function handleSkipNameSetup() {
 
       <!-- Spectator Notice -->
       <div v-if="isSpectator" class="flex items-center justify-center gap-2 py-3 px-4 bg-[rgba(99,102,241,0.1)] border border-dashed border-[rgba(99,102,241,0.3)] rounded-md text-text-secondary text-sm">
-        <span>👁️</span>
+        <EyeIcon class="w-5 h-5" />
         <span>You're watching as a spectator. You won't be able to make moves.</span>
       </div>
 
@@ -568,7 +590,9 @@ function handleSkipNameSetup() {
           :disabled="!canStartGame || isUpdatingRules"
           @click="handleStartGame"
         >
-          {{ isUpdatingRules ? 'Syncing...' : activePlayers.length < 2 ? 'Waiting for players...' : '🎮 Start Game' }}
+          <template v-if="isUpdatingRules">Syncing...</template>
+          <template v-else-if="activePlayers.length < 2">Waiting for players...</template>
+          <template v-else><PlayIcon class="w-5 h-5 inline-block mr-1" /> Start Game</template>
         </button>
 
         <div v-else class="waiting-message flex items-center gap-2 text-text-muted text-sm">
@@ -649,6 +673,11 @@ function handleSkipNameSetup() {
         <p class="mt-4 text-xl text-text-secondary uppercase tracking-[0.15em]">Get Ready!</p>
       </div>
     </Transition>
+
+    <HelpModal
+      :is-open="showHelpModal"
+      @close="showHelpModal = false"
+    />
   </div>
 </template>
 
