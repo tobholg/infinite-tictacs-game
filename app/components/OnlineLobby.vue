@@ -319,15 +319,15 @@ function handleSkipNameSetup() {
 </script>
 
 <template>
-  <div class="online-lobby">
+  <div class="flex flex-col gap-3 max-w-[700px] mx-auto p-4">
     <!-- Header -->
-    <div class="lobby-header">
-      <button class="back-btn" @click="handleBackToMainMenu">
+    <div class="flex justify-between items-center mb-2">
+      <button class="flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="handleBackToMainMenu">
         <span>&larr;</span>
         <span>Back</span>
       </button>
-      <div class="connection-status" :class="{ connected: isConnected }">
-        <span class="status-dot"></span>
+      <div class="connection-status flex items-center gap-2 py-2 px-3 bg-surface border border-border rounded-md text-xs text-text-muted" :class="{ connected: isConnected }">
+        <span class="status-dot w-2 h-2 rounded-full"></span>
         <span>{{ isConnected ? 'Connected' : 'Connecting...' }}</span>
       </div>
     </div>
@@ -337,7 +337,7 @@ function handleSkipNameSetup() {
       v-if="error || connectionError"
       :initial="{ opacity: 0, y: -10 }"
       :animate="{ opacity: 1, y: 0 }"
-      class="error-banner"
+      class="py-3 px-4 bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] rounded-md text-[#fca5a5] text-sm text-center"
     >
       {{ error || connectionError }}
     </Motion>
@@ -348,10 +348,10 @@ function handleSkipNameSetup() {
       :initial="{ opacity: 0, y: 20 }"
       :animate="{ opacity: 1, y: 0 }"
       :transition="{ duration: 0.4, easing: livelySpringEasing }"
-      class="loading-section"
+      class="flex flex-col items-center gap-4 p-8"
     >
-      <div class="loading-spinner"></div>
-      <p class="loading-text">Setting up your room...</p>
+      <div class="loading-spinner w-12 h-12 border-[3px] border-border border-t-primary rounded-full"></div>
+      <p class="text-base text-text-secondary m-0">Setting up your room...</p>
     </Motion>
 
     <!-- Main Lobby Content -->
@@ -360,17 +360,17 @@ function handleSkipNameSetup() {
       :initial="{ opacity: 0, y: 20 }"
       :animate="{ opacity: 1, y: 0 }"
       :transition="{ duration: 0.5, easing: livelySpringEasing }"
-      class="lobby-content"
+      class="flex flex-col gap-3"
     >
       <!-- Room Code Section -->
-      <section class="config-section room-code-section">
-        <div class="section-header centered">
-          <span class="room-label">ROOM CODE</span>
+      <section class="config-section bg-gradient-to-br from-surface to-[rgba(99,102,241,0.05)] text-center p-5 border border-border rounded-lg">
+        <div class="flex justify-center mb-3">
+          <span class="text-xs font-semibold text-text-muted uppercase tracking-[0.15em]">ROOM CODE</span>
         </div>
-        <div class="room-code-display">
-          <span class="room-code">{{ roomCode }}</span>
+        <div class="flex items-center justify-center gap-3 my-3">
+          <span class="font-mono text-[clamp(2rem,8vw,3rem)] font-bold tracking-[0.15em] text-primary">{{ roomCode }}</span>
           <button
-            class="copy-btn"
+            class="copy-btn w-11 h-11 grid place-items-center bg-bg-muted border border-border rounded-md text-text-secondary text-[1.2rem] cursor-pointer transition-all duration-200 hover:bg-primary hover:border-primary hover:text-white"
             @click="copyRoomCode"
             :class="{ copied: codeCopied }"
             :title="codeCopied ? 'Copied!' : 'Copy code'"
@@ -378,24 +378,24 @@ function handleSkipNameSetup() {
             {{ codeCopied ? '✓' : '📋' }}
           </button>
         </div>
-        <p class="room-hint">Share this code with friends to join the game</p>
+        <p class="m-0 text-sm text-text-muted">Share this code with friends to join the game</p>
       </section>
 
       <!-- Players Section -->
-      <section class="config-section">
-        <div class="section-header">
-          <h3 class="section-title">Players</h3>
-          <span class="player-count">{{ activePlayers.length }}/{{ rules?.maxPlayers || 20 }}</span>
+      <section class="config-section border border-border rounded-lg py-3 px-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="m-0 font-display text-lg font-semibold text-text-primary">Players</h3>
+          <span class="text-sm text-text-muted py-1 px-2 bg-bg-muted rounded-sm">{{ activePlayers.length }}/{{ rules?.maxPlayers || 20 }}</span>
         </div>
 
-        <div class="players-list">
+        <div class="flex flex-col gap-2">
           <Motion
             v-for="(player, index) in activePlayers"
             :key="player.id"
             :initial="{ opacity: 0, x: -20 }"
             :animate="{ opacity: 1, x: 0 }"
             :transition="{ duration: 0.3, delay: index * 0.05, easing: livelySpringEasing }"
-            class="player-row"
+            class="player-row flex items-center gap-3 p-3 bg-bg-muted border-2 border-border rounded-md transition-all duration-200 hover:border-[rgba(99,102,241,0.4)]"
             :class="{
               'is-me': player.id === playerId,
               'is-host': player.id === hostId,
@@ -403,25 +403,25 @@ function handleSkipNameSetup() {
               'disconnected': !player.connected && !player.isAI
             }"
           >
-            <div class="player-avatar" :class="`symbol-${player.symbol.toLowerCase()}`">
+            <div class="player-avatar w-11 h-11 grid place-items-center bg-[rgba(99,102,241,0.1)] rounded-md shrink-0" :class="`symbol-${player.symbol.toLowerCase()}`">
               <component :is="getPlayerSymbolComponent(player.symbol)" />
             </div>
-            <div class="player-info">
-              <span class="player-name">
+            <div class="flex-1 min-w-0">
+              <span class="block font-semibold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
                 {{ player.name }}
-                <span v-if="player.id === hostId" class="host-tag">(Host)</span>
+                <span v-if="player.id === hostId" class="font-normal text-[#fcd34d] ml-1">(Host)</span>
               </span>
-              <div class="player-badges">
-                <span v-if="player.id === playerId" class="badge me-badge">You</span>
-                <span v-if="player.isAI" class="badge ai-badge">
+              <div class="flex flex-wrap gap-1 mt-1">
+                <span v-if="player.id === playerId" class="badge py-[2px] px-2 text-xs font-semibold rounded-sm uppercase bg-[rgba(99,102,241,0.2)] text-[#a5b4fc]">You</span>
+                <span v-if="player.isAI" class="badge py-[2px] px-2 text-xs font-semibold rounded-sm uppercase bg-[rgba(139,92,246,0.2)] text-[#c4b5fd]">
                   AI ({{ getDifficultyLabel(player.aiDifficulty || 'medium') }})
                 </span>
-                <span v-if="!player.connected && !player.isAI" class="badge offline-badge">Offline</span>
+                <span v-if="!player.connected && !player.isAI" class="badge py-[2px] px-2 text-xs font-semibold rounded-sm uppercase bg-[rgba(239,68,68,0.2)] text-[#fca5a5]">Offline</span>
               </div>
             </div>
             <button
               v-if="isHost && player.isAI"
-              class="btn-remove"
+              class="w-8 h-8 grid place-items-center bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-sm text-[#fca5a5] text-base cursor-pointer transition-all duration-200 shrink-0 hover:bg-[rgba(239,68,68,0.2)] hover:text-[#f87171]"
               @click="handleRemoveAI(player.id)"
               title="Remove bot"
             >
@@ -430,67 +430,67 @@ function handleSkipNameSetup() {
           </Motion>
 
           <!-- Empty slot placeholder when waiting -->
-          <div v-if="activePlayers.length < 2" class="player-row empty-slot">
-            <div class="empty-content">
-              <span class="empty-icon">⏳</span>
-              <span class="empty-text">Waiting for players to join...</span>
+          <div v-if="activePlayers.length < 2" class="flex items-center gap-3 p-3 bg-bg-muted border-2 border-dashed border-border rounded-md justify-center min-h-[70px]">
+            <div class="flex items-center gap-2 text-text-muted">
+              <span class="text-[1.25rem]">⏳</span>
+              <span class="text-sm">Waiting for players to join...</span>
             </div>
           </div>
         </div>
       </section>
 
       <!-- Game Mode (Host Only - can edit) -->
-      <section v-if="isHost" class="config-section game-mode-section">
-        <div class="section-header">
-          <h3 class="section-title">Game Mode</h3>
+      <section v-if="isHost" class="config-section border border-border rounded-lg py-3 px-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="m-0 font-display text-lg font-semibold text-text-primary">Game Mode</h3>
         </div>
-        <div class="game-mode-grid">
+        <div class="grid grid-cols-2 gap-2 mb-3">
           <button
             v-for="preset in gamePresets"
             :key="preset.id"
             type="button"
-            class="preset-btn"
+            class="preset-btn flex flex-col items-center gap-1 p-3 bg-bg-muted border-2 border-border rounded-md text-text-secondary cursor-pointer transition-all duration-200 text-center hover:border-accent hover:bg-surface-elevated hover:-translate-y-0.5"
             :class="{ selected: selectedPresetId === preset.id, applied: appliedPresetId === preset.id }"
             @click="selectGamePreset(preset.id)"
           >
-            <span class="preset-icon">{{ preset.icon }}</span>
-            <span class="preset-name">{{ preset.name }}</span>
-            <span class="preset-desc">{{ preset.description }}</span>
-            <span v-if="preset.timeLimit" class="preset-tag">{{ preset.timeLimit }}s turns</span>
+            <span class="text-[2rem]">{{ preset.icon }}</span>
+            <span class="text-base font-semibold text-text-primary">{{ preset.name }}</span>
+            <span class="text-xs text-text-muted leading-[1.4]">{{ preset.description }}</span>
+            <span v-if="preset.timeLimit" class="mt-1 py-[2px] px-2 bg-[rgba(99,102,241,0.15)] text-accent text-xs font-semibold rounded-full">{{ preset.timeLimit }}s turns</span>
           </button>
         </div>
-        <div v-if="hasUnappliedChanges" class="apply-row">
-          <button class="btn btn-apply" @click="applyGameMode">
+        <div v-if="hasUnappliedChanges" class="flex items-center gap-3 p-2 bg-[rgba(250,204,21,0.1)] border border-dashed border-[rgba(250,204,21,0.3)] rounded-md">
+          <button class="py-2 px-4 bg-gradient-to-br from-[#f59e0b] to-[#d97706] border border-[#f59e0b] rounded-md text-white font-semibold text-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(245,158,11,0.3)]" @click="applyGameMode">
             Apply Settings
           </button>
-          <span class="apply-hint">Changes not yet applied to room</span>
+          <span class="text-xs text-warning">Changes not yet applied to room</span>
         </div>
-        <p v-else class="mode-hint">
+        <p v-else class="m-0 text-xs text-text-muted text-center">
           {{ appliedPresetId === 'speed-classic' ? 'Speed mode active: 5 seconds per turn' : 'Classic mode: unlimited time per turn' }}
         </p>
       </section>
 
       <!-- Game Mode Display (Non-host - read only) -->
-      <section v-else class="config-section game-mode-display">
-        <div class="section-header">
-          <h3 class="section-title">Game Mode</h3>
+      <section v-else class="config-section border border-border rounded-lg py-3 px-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="m-0 font-display text-lg font-semibold text-text-primary">Game Mode</h3>
         </div>
-        <div class="mode-info">
-          <span class="mode-icon">{{ currentGameMode.icon }}</span>
-          <div class="mode-details">
-            <span class="mode-name">{{ currentGameMode.name }}</span>
-            <span class="mode-description">{{ currentGameMode.description }}</span>
+        <div class="flex items-center gap-3 p-3 bg-bg-muted border-2 border-border rounded-md">
+          <span class="text-[2rem] shrink-0">{{ currentGameMode.icon }}</span>
+          <div class="flex flex-col gap-1">
+            <span class="text-base font-semibold text-text-primary">{{ currentGameMode.name }}</span>
+            <span class="text-sm text-text-muted">{{ currentGameMode.description }}</span>
           </div>
         </div>
       </section>
 
       <!-- AI Controls (Host Only) -->
-      <section v-if="isHost" class="config-section ai-section">
-        <div class="section-header">
-          <h3 class="section-title">Add Bots</h3>
+      <section v-if="isHost" class="config-section border border-border rounded-lg py-3 px-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="m-0 font-display text-lg font-semibold text-text-primary">Add Bots</h3>
           <button
             v-if="!showAIForm"
-            class="add-bot-btn"
+            class="py-2 px-3 bg-[rgba(139,92,246,0.15)] border border-[rgba(139,92,246,0.3)] rounded-md text-[#c4b5fd] text-sm font-medium cursor-pointer transition-all duration-200 hover:bg-[rgba(139,92,246,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
             @click="showAIForm = true"
             :disabled="activePlayers.length >= (rules?.maxPlayers || 20)"
           >
@@ -503,70 +503,70 @@ function handleSkipNameSetup() {
           :initial="{ opacity: 0, height: 0 }"
           :animate="{ opacity: 1, height: 'auto' }"
           :transition="{ duration: 0.3 }"
-          class="ai-form"
+          class="flex flex-col gap-3 overflow-hidden"
         >
-          <div class="form-row">
+          <div class="flex gap-2">
             <input
               v-model="aiName"
               type="text"
               placeholder="Bot name (optional)"
               maxlength="20"
-              class="ai-input"
+              class="flex-1 py-2 px-3 bg-bg-muted border border-border rounded-md text-text-primary text-sm outline-none transition-colors duration-200 focus:border-primary placeholder:text-text-muted"
             />
-            <select v-model="aiDifficulty" class="ai-select">
+            <select v-model="aiDifficulty" class="py-2 px-3 bg-bg-muted border border-border rounded-md text-text-primary text-sm cursor-pointer outline-none">
               <option value="easy">Easy</option>
               <option value="medium">Medium</option>
               <option value="hard">Hard</option>
             </select>
           </div>
-          <div class="form-actions">
-            <button class="btn btn-secondary" @click="showAIForm = false">Cancel</button>
-            <button class="btn btn-primary" @click="handleAddAI">Add Bot</button>
+          <div class="flex justify-end gap-2">
+            <button class="btn inline-flex items-center justify-center gap-2 py-3 px-4 rounded-md font-semibold text-sm cursor-pointer transition-all duration-200 border bg-surface border-border text-text-secondary hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="showAIForm = false">Cancel</button>
+            <button class="btn inline-flex items-center justify-center gap-2 py-3 px-4 rounded-md font-semibold text-sm cursor-pointer transition-all duration-200 border bg-gradient-to-br from-accent to-accent-strong text-white border-accent hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(99,102,241,0.3)]" @click="handleAddAI">Add Bot</button>
           </div>
         </Motion>
       </section>
 
       <!-- Spectators -->
-      <section v-if="spectators.length > 0" class="config-section spectators-section">
-        <div class="section-header">
-          <h3 class="section-title small">Spectators ({{ spectators.length }})</h3>
+      <section v-if="spectators.length > 0" class="config-section border border-border rounded-lg p-3">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="m-0 font-display text-base font-semibold text-text-primary">Spectators ({{ spectators.length }})</h3>
         </div>
-        <div class="spectators-list">
+        <div class="flex flex-wrap gap-2">
           <span
             v-for="spectator in spectators"
             :key="spectator.id"
-            class="spectator-chip"
+            class="spectator-chip py-1 px-3 bg-bg-muted border border-border rounded-full text-sm text-text-secondary"
             :class="{ 'is-me': spectator.id === playerId }"
           >
             {{ spectator.name }}
-            <span v-if="spectator.id === playerId" class="you-tag">(you)</span>
+            <span v-if="spectator.id === playerId" class="text-text-muted text-xs">(you)</span>
           </span>
         </div>
       </section>
 
       <!-- Spectator Notice -->
-      <div v-if="isSpectator" class="spectator-notice">
+      <div v-if="isSpectator" class="flex items-center justify-center gap-2 py-3 px-4 bg-[rgba(99,102,241,0.1)] border border-dashed border-[rgba(99,102,241,0.3)] rounded-md text-text-secondary text-sm">
         <span>👁️</span>
         <span>You're watching as a spectator. You won't be able to make moves.</span>
       </div>
 
       <!-- Action Footer -->
-      <div class="lobby-actions">
-        <button class="btn btn-secondary" @click="handleLeaveRoom">
+      <div class="lobby-actions flex items-center justify-between gap-3 pt-4 border-t border-border mt-2">
+        <button class="btn inline-flex items-center justify-center gap-2 py-3 px-4 rounded-md font-semibold text-sm cursor-pointer transition-all duration-200 border bg-surface border-border text-text-secondary hover:bg-surface-elevated hover:text-text-primary hover:border-accent" @click="handleLeaveRoom">
           Leave Room
         </button>
 
         <button
           v-if="isHost"
-          class="btn btn-primary btn-start"
+          class="btn btn-start inline-flex items-center justify-center gap-2 py-3 px-6 rounded-md font-semibold text-base cursor-pointer transition-all duration-200 border bg-gradient-to-br from-positive to-[#059669] border-positive text-white hover:shadow-[0_8px_20px_rgba(16,185,129,0.3)] disabled:bg-gradient-to-br disabled:from-[#4b5563] disabled:to-[#374151] disabled:border-[#4b5563] disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="!canStartGame || isUpdatingRules"
           @click="handleStartGame"
         >
           {{ isUpdatingRules ? 'Syncing...' : activePlayers.length < 2 ? 'Waiting for players...' : '🎮 Start Game' }}
         </button>
 
-        <div v-else class="waiting-message">
-          <span class="waiting-dots"><span></span><span></span><span></span></span>
+        <div v-else class="waiting-message flex items-center gap-2 text-text-muted text-sm">
+          <span class="waiting-dots flex gap-1"><span></span><span></span><span></span></span>
           <span>{{ isSpectator ? 'Waiting to spectate...' : 'Waiting for host to start...' }}</span>
         </div>
       </div>
@@ -574,46 +574,46 @@ function handleSkipNameSetup() {
 
     <!-- Name Setup Popup -->
     <Transition name="fade">
-      <div v-if="needsNameSetup" class="name-setup-overlay">
+      <div v-if="needsNameSetup" class="name-setup-overlay fixed inset-0 flex items-center justify-center bg-[rgba(0,0,0,0.85)] z-[900] p-4">
         <Motion
           :initial="{ opacity: 0, scale: 0.95, y: 20 }"
           :animate="{ opacity: 1, scale: 1, y: 0 }"
           :transition="{ duration: 0.3, easing: livelySpringEasing }"
-          class="name-setup-popup"
+          class="bg-surface border border-border rounded-lg p-6 max-w-[400px] w-full text-center"
         >
-          <h3 class="popup-title">Welcome! Pick Your Name</h3>
-          <p class="popup-hint">Choose a unique name for this room</p>
+          <h3 class="m-0 mb-2 font-display text-xl font-bold text-text-primary">Welcome! Pick Your Name</h3>
+          <p class="m-0 mb-4 text-sm text-text-muted">Choose a unique name for this room</p>
 
-          <div class="popup-form">
-            <div class="form-field">
-              <label for="name-input" class="form-label">Your Name</label>
+          <div class="flex flex-col gap-3">
+            <div class="flex flex-col gap-2 text-left">
+              <label for="name-input" class="text-sm font-medium text-text-secondary">Your Name</label>
               <input
                 id="name-input"
                 v-model="nameInput"
                 type="text"
                 placeholder="Enter your name"
                 maxlength="20"
-                class="form-input"
+                class="py-3 px-4 bg-bg-muted border-2 border-border rounded-md text-text-primary text-base outline-none transition-colors duration-200 focus:border-accent placeholder:text-text-tertiary"
                 @keyup.enter="handleConfirmName"
               />
             </div>
 
-            <label class="spectator-option">
-              <input type="checkbox" v-model="spectatorChoice" class="spectator-check" />
-              <span class="option-text">Join as spectator (watch only)</span>
+            <label class="flex items-center gap-2 cursor-pointer p-2 my-1">
+              <input type="checkbox" v-model="spectatorChoice" class="w-[18px] h-[18px] accent-accent cursor-pointer" />
+              <span class="text-sm text-text-secondary">Join as spectator (watch only)</span>
             </label>
 
             <!-- Error display -->
-            <div v-if="nameSetupError" class="name-error">
+            <div v-if="nameSetupError" class="py-3 bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] rounded-md text-[#fca5a5] text-sm text-center">
               {{ nameSetupError }}
             </div>
 
-            <div class="popup-actions">
-              <button class="btn btn-ghost" @click="handleSkipNameSetup">
+            <div class="flex gap-2 mt-2">
+              <button class="btn flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-md font-semibold text-sm cursor-pointer transition-all duration-200 border bg-transparent border-border text-text-secondary hover:bg-surface-elevated hover:text-text-primary" @click="handleSkipNameSetup">
                 Skip
               </button>
               <button
-                class="btn btn-primary"
+                class="btn flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-md font-semibold text-sm cursor-pointer transition-all duration-200 border bg-gradient-to-br from-accent to-accent-strong text-white border-accent disabled:opacity-50 disabled:cursor-not-allowed"
                 :disabled="!nameInput.trim()"
                 @click="handleConfirmName"
               >
@@ -622,83 +622,33 @@ function handleSkipNameSetup() {
             </div>
           </div>
 
-          <p class="popup-footer">Or skip to keep your current name ({{ myPlayer?.name || 'Player' }})</p>
+          <p class="mt-4 text-xs text-text-muted">Or skip to keep your current name ({{ myPlayer?.name || 'Player' }})</p>
         </Motion>
       </div>
     </Transition>
 
     <!-- Countdown Overlay -->
     <Transition name="countdown-fade">
-      <div v-if="isInCountdown" class="countdown-overlay">
+      <div v-if="isInCountdown" class="countdown-overlay fixed inset-0 flex flex-col items-center justify-center bg-[rgba(0,0,0,0.9)] z-[1000]">
         <Motion
           :key="countdownSeconds"
           :initial="{ scale: 2, opacity: 0 }"
           :animate="{ scale: 1, opacity: 1 }"
           :transition="{ duration: 0.3, easing: livelySpringEasing }"
-          class="countdown-number"
+          class="text-[10rem] font-extrabold text-primary leading-none"
+          :style="{ textShadow: '0 0 60px var(--color-primary)' }"
         >
           {{ countdownSeconds }}
         </Motion>
-        <p class="countdown-text">Get Ready!</p>
+        <p class="mt-4 text-xl text-text-secondary uppercase tracking-[0.15em]">Get Ready!</p>
       </div>
     </Transition>
   </div>
 </template>
 
 <style scoped>
-.online-lobby {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  max-width: 700px;
-  margin: 0 auto;
-  padding: var(--space-4);
-}
-
-/* Header */
-.lobby-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-2);
-}
-
-.back-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.back-btn:hover {
-  background: var(--color-surface-elevated);
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-}
-
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
-
+/* Connection status animations */
 .status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
   background: var(--color-warning);
   animation: pulse 1.5s infinite;
 }
@@ -713,32 +663,8 @@ function handleSkipNameSetup() {
   50% { opacity: 0.4; }
 }
 
-/* Error Banner */
-.error-banner {
-  padding: var(--space-3) var(--space-4);
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: var(--radius-md);
-  color: #fca5a5;
-  font-size: var(--text-sm);
-  text-align: center;
-}
-
-/* Loading */
-.loading-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-8);
-}
-
+/* Loading spinner */
 .loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
@@ -746,154 +672,20 @@ function handleSkipNameSetup() {
   to { transform: rotate(360deg); }
 }
 
-.loading-text {
-  font-size: var(--text-base);
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-/* Lobby Content */
-.lobby-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* Config Sections - matching StartMenu style */
+/* Config section theming */
 .config-section {
   background: rgba(26, 29, 53, 0.7);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3) var(--space-4);
 }
 
-/* Light mode: white background with 70% opacity */
 :root.light .config-section {
   background: rgba(255, 255, 255, 0.7);
 }
 
-/* Christmas theme (both dark and light): use dark Christmas colors */
 :root[data-theme="christmas"] .config-section {
   background: rgba(42, 21, 24, 0.7);
 }
 
-/* Room Code Section */
-.room-code-section {
-  background: linear-gradient(135deg, var(--color-surface), rgba(99, 102, 241, 0.05));
-  text-align: center;
-  padding: var(--space-5);
-}
-
-.room-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-}
-
-.room-code-display {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  margin: var(--space-3) 0;
-}
-
-.room-code {
-  font-family: monospace;
-  font-size: clamp(2rem, 8vw, 3rem);
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  color: var(--color-primary);
-}
-
-.copy-btn {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: 1.2rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.copy-btn:hover {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: white;
-}
-
-.copy-btn.copied {
-  background: rgba(34, 197, 94, 0.2);
-  border-color: rgba(34, 197, 94, 0.4);
-  color: #22c55e;
-}
-
-.room-hint {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
-/* Section Headers */
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-3);
-}
-
-.section-header.centered {
-  justify-content: center;
-}
-
-.section-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.section-title.small {
-  font-size: var(--text-base);
-}
-
-.player-count {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-bg-muted);
-  border-radius: var(--radius-sm);
-}
-
-/* Players List - matching StartMenu player rows */
-.players-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.player-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-}
-
-.player-row:hover {
-  border-color: rgba(99, 102, 241, 0.4);
-}
-
+/* Player row states */
 .player-row.is-me {
   background: rgba(99, 102, 241, 0.1);
   border-color: rgba(99, 102, 241, 0.4);
@@ -912,331 +704,50 @@ function handleSkipNameSetup() {
   opacity: 0.5;
 }
 
-.player-row.empty-slot {
-  border-style: dashed;
-  border-color: var(--color-border);
-  justify-content: center;
-  min-height: 70px;
-}
-
-.empty-content {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-}
-
-.empty-icon {
-  font-size: 1.25rem;
-}
-
-.empty-text {
-  font-size: var(--text-sm);
-}
-
-/* Player Avatar */
-.player-avatar {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  background: rgba(99, 102, 241, 0.1);
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-}
-
+/* Player avatar symbol colors */
 .player-avatar :deep(svg) {
   width: 28px;
   height: 28px;
 }
 
-.player-avatar.symbol-x { color: var(--glow-x); }
-.player-avatar.symbol-o { color: var(--glow-o); }
-.player-avatar.symbol-square { color: var(--glow-square); }
-.player-avatar.symbol-star { color: var(--glow-star); }
-.player-avatar.symbol-triangle { color: var(--glow-triangle); }
-.player-avatar.symbol-diamond { color: var(--glow-diamond); }
-.player-avatar.symbol-circle { color: var(--glow-circle); }
-.player-avatar.symbol-plus { color: var(--glow-plus); }
-.player-avatar.symbol-heart { color: var(--glow-heart); }
-.player-avatar.symbol-pentagon { color: var(--glow-pentagon); }
+.player-avatar.symbol-x { color: var(--neon-cyan); }
+.player-avatar.symbol-o { color: var(--neon-pink); }
+.player-avatar.symbol-square { color: var(--neon-purple); }
+.player-avatar.symbol-star { color: var(--neon-orange); }
+.player-avatar.symbol-triangle { color: var(--neon-green); }
+.player-avatar.symbol-diamond { color: var(--neon-blue); }
+.player-avatar.symbol-circle { color: var(--neon-yellow); }
+.player-avatar.symbol-plus { color: var(--neon-red); }
+.player-avatar.symbol-heart { color: var(--neon-teal); }
+.player-avatar.symbol-pentagon { color: var(--neon-lime); }
 
-/* Player Info */
-.player-info {
-  flex: 1;
-  min-width: 0;
+/* Copy button copied state */
+.copy-btn.copied {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #22c55e;
 }
 
-.player-name {
-  display: block;
-  font-weight: 600;
+/* Preset button states */
+.preset-btn.selected {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--color-accent);
   color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
 
-.host-tag {
-  font-weight: 400;
-  color: #fcd34d;
-  margin-left: var(--space-1);
+.preset-btn.applied {
+  border-width: 3px;
 }
 
-.player-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-top: var(--space-1);
-}
-
-.badge {
-  padding: 2px 8px;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-  text-transform: uppercase;
-}
-
-.me-badge {
-  background: rgba(99, 102, 241, 0.2);
-  color: #a5b4fc;
-}
-
-.ai-badge {
-  background: rgba(139, 92, 246, 0.2);
-  color: #c4b5fd;
-}
-
-.offline-badge {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-}
-
-.btn-remove {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: var(--radius-sm);
-  color: #fca5a5;
-  font-size: var(--text-base);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.btn-remove:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-}
-
-/* AI Section */
-.ai-section .section-header {
-  margin-bottom: var(--space-2);
-}
-
-.add-bot-btn {
-  padding: var(--space-2) var(--space-3);
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: var(--radius-md);
-  color: #c4b5fd;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.add-bot-btn:hover:not(:disabled) {
-  background: rgba(139, 92, 246, 0.25);
-}
-
-.add-bot-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* AI Form */
-.ai-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  overflow: hidden;
-}
-
-.form-row {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.ai-input {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: var(--text-sm);
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.ai-input:focus {
-  border-color: var(--color-primary);
-}
-
-.ai-input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.ai-select {
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  outline: none;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
-
-/* Spectators Section */
-.spectators-section {
-  padding: var(--space-3);
-}
-
-.spectators-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.spectator-chip {
-  padding: var(--space-1) var(--space-3);
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
-
+/* Spectator chip states */
 .spectator-chip.is-me {
   background: rgba(99, 102, 241, 0.1);
   border-color: rgba(99, 102, 241, 0.3);
   color: var(--color-text-primary);
 }
 
-.you-tag {
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-}
-
-/* Spectator Notice */
-.spectator-notice {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px dashed rgba(99, 102, 241, 0.3);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-}
-
-/* Lobby Actions */
-.lobby-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-  margin-top: var(--space-2);
-}
-
-/* Buttons - matching StartMenu style */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-strong));
-  color: white;
-  border-color: var(--color-accent);
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-}
-
-.btn-secondary:hover {
-  background: var(--color-surface-elevated);
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-}
-
-.btn-start {
-  padding: var(--space-3) var(--space-6);
-  font-size: var(--text-base);
-  background: linear-gradient(135deg, #10b981, #059669);
-  border-color: #10b981;
-}
-
-.btn-start:hover:not(:disabled) {
-  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
-}
-
-.btn-start:disabled {
-  background: linear-gradient(135deg, #4b5563, #374151);
-  border-color: #4b5563;
-}
-
-/* Waiting Message */
-.waiting-message {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
-
-.waiting-dots {
-  display: flex;
-  gap: 4px;
-}
-
+/* Waiting dots animation */
 .waiting-dots span {
   width: 6px;
   height: 6px;
@@ -1253,34 +764,7 @@ function handleSkipNameSetup() {
   40% { transform: scale(1); opacity: 1; }
 }
 
-/* Countdown Overlay */
-.countdown-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.9);
-  z-index: 1000;
-}
-
-.countdown-number {
-  font-size: 10rem;
-  font-weight: 800;
-  color: var(--color-primary);
-  text-shadow: 0 0 60px var(--color-primary);
-  line-height: 1;
-}
-
-.countdown-text {
-  margin: var(--space-4) 0 0;
-  font-size: var(--text-xl);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-}
-
+/* Transitions */
 .countdown-fade-enter-active,
 .countdown-fade-leave-active {
   transition: opacity 0.3s ease;
@@ -1291,139 +775,6 @@ function handleSkipNameSetup() {
   opacity: 0;
 }
 
-/* Name Setup Popup */
-.name-setup-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 900;
-  padding: var(--space-4);
-}
-
-.name-setup-popup {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  max-width: 400px;
-  width: 100%;
-  text-align: center;
-}
-
-.popup-title {
-  margin: 0 0 var(--space-2);
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.popup-hint {
-  margin: 0 0 var(--space-4);
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
-.popup-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  text-align: left;
-}
-
-.form-label {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-
-.form-input {
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: var(--text-base);
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.form-input:focus {
-  border-color: var(--color-accent);
-}
-
-.form-input::placeholder {
-  color: var(--color-text-tertiary);
-}
-
-.spectator-option {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  padding: var(--space-2);
-  margin: var(--space-1) 0;
-}
-
-.spectator-check {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--color-accent);
-  cursor: pointer;
-}
-
-.option-text {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
-
-.name-error {
-  padding: var(--space-3);
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: var(--radius-md);
-  color: #fca5a5;
-  font-size: var(--text-sm);
-  text-align: center;
-}
-
-.popup-actions {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-.popup-actions .btn {
-  flex: 1;
-}
-
-.btn-ghost {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-}
-
-.btn-ghost:hover {
-  background: var(--color-surface-elevated);
-  color: var(--color-text-primary);
-}
-
-.popup-footer {
-  margin: var(--space-4) 0 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
-
-/* Fade transition for name popup */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;
@@ -1434,180 +785,18 @@ function handleSkipNameSetup() {
   opacity: 0;
 }
 
-/* Game Mode Section */
-.game-mode-section {
-  padding: var(--space-3) var(--space-4);
-}
-
-.game-mode-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.preset-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: center;
-}
-
-.preset-btn:hover {
-  border-color: var(--color-accent);
-  background: var(--color-surface-elevated);
-  transform: translateY(-2px);
-}
-
-.preset-btn.selected {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: var(--color-accent);
-  color: var(--color-text-primary);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
-}
-
-.preset-btn.applied {
-  border-width: 3px;
-}
-
-.preset-icon {
-  font-size: 2rem;
-}
-
-.preset-name {
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.preset-desc {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: 1.4;
-}
-
-.preset-tag {
-  margin-top: var(--space-1);
-  padding: 2px 8px;
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--color-accent);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  border-radius: var(--radius-pill);
-}
-
-.apply-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  background: rgba(250, 204, 21, 0.1);
-  border: 1px dashed rgba(250, 204, 21, 0.3);
-  border-radius: var(--radius-md);
-}
-
-.btn-apply {
-  padding: var(--space-2) var(--space-4);
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  border: 1px solid #f59e0b;
-  border-radius: var(--radius-md);
-  color: white;
-  font-weight: 600;
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-apply:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-}
-
-.apply-hint {
-  font-size: var(--text-xs);
-  color: var(--color-warning);
-}
-
-.mode-hint {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  text-align: center;
-}
-
-/* Game Mode Display (non-host) */
-.game-mode-display {
-  padding: var(--space-3) var(--space-4);
-}
-
-.mode-info {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.mode-icon {
-  font-size: 2rem;
-  flex-shrink: 0;
-}
-
-.mode-details {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.mode-name {
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.mode-description {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
 /* Responsive */
 @media (max-width: 600px) {
-  .online-lobby {
-    padding: var(--space-3);
-  }
-
-  .room-code {
-    font-size: 2rem;
-  }
-
   .lobby-actions {
     flex-direction: column;
   }
 
-  .btn {
+  .lobby-actions .btn {
     width: 100%;
   }
 
   .btn-start {
     order: -1;
-  }
-
-  .waiting-message {
-    justify-content: center;
-  }
-
-  .countdown-number {
-    font-size: 6rem;
   }
 }
 </style>

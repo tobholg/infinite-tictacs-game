@@ -1,53 +1,53 @@
 <template>
-  <div v-if="showSelector" class="parliament-overlay" @click="$emit('close')">
-    <div class="parliament-popup" @click.stop>
+  <div v-if="showSelector" class="parliament-overlay fixed inset-0 bg-[rgba(0,0,0,0.6)] backdrop-blur-[8px] flex items-center justify-center z-[1000] animate-[overlayFadeIn_0.3s_ease]" @click="$emit('close')">
+    <div class="parliament-popup bg-gradient-to-br from-[rgba(255,255,255,0.98)] to-[rgba(240,240,255,0.95)] rounded-3xl p-8 max-w-[90vw] max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.5),inset_0_0_60px_rgba(255,255,255,0.3)] animate-[popupSlideIn_0.4s_cubic-bezier(0.34,1.56,0.64,1)]" @click.stop>
       <!-- Header -->
-      <div class="parliament-header">
-        <h2 class="parliament-title">🏛️ Game Presets Gallery</h2>
-        <p class="parliament-subtitle">Choose a preset combination or create your own</p>
+      <div class="text-center mb-8">
+        <h2 class="text-[2rem] font-extrabold bg-gradient-to-r from-[#8a2be2] via-[#ff7730] to-[#ff1493] bg-clip-text text-transparent m-0">🏛️ Game Presets Gallery</h2>
+        <p class="text-[#666] text-base mt-2 mb-0 italic">Choose a preset combination or create your own</p>
       </div>
 
       <!-- Presets Grid -->
-      <div class="presets-container">
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6 mb-8">
         <div v-for="preset in presets" :key="preset.id"
-             class="preset-card"
+             class="preset-card bg-gradient-to-br from-[rgba(255,255,255,0.9)] to-[rgba(240,245,255,0.8)] border-2 border-[rgba(138,43,226,0.2)] rounded-2xl p-6 cursor-pointer transition-all duration-300 relative"
              :class="{ disabled: preset.disabled, favorite: isFavorite(preset.id) }"
              @click="selectPreset(preset)">
-          <div class="preset-header">
-            <div class="preset-icon">{{ preset.icon }}</div>
+          <div class="flex items-center justify-between mb-4">
+            <div class="text-[2.5rem] w-[60px] h-[60px] flex items-center justify-center bg-gradient-to-br from-[rgba(138,43,226,0.1)] to-[rgba(255,119,48,0.1)] rounded-xl">{{ preset.icon }}</div>
             <button v-if="!preset.disabled"
                     @click.stop="toggleFavorite(preset.id)"
-                    class="favorite-btn"
+                    class="favorite-btn bg-transparent border-none text-2xl cursor-pointer transition-all duration-300 p-1 opacity-30 hover:opacity-100 hover:scale-[1.2]"
                     :class="{ active: isFavorite(preset.id) }">
               {{ isFavorite(preset.id) ? '⭐' : '☆' }}
             </button>
           </div>
-          <div class="preset-body">
-            <h3 class="preset-name">{{ preset.name }}</h3>
-            <p class="preset-description">{{ preset.description }}</p>
-            <div class="preset-details">
-              <div class="detail-item">
-                <span class="detail-label">Mode:</span>
-                <span class="detail-value">{{ getModeLabel(preset.gameMode) }}</span>
+          <div class="flex flex-col gap-3">
+            <h3 class="text-[1.3rem] font-bold text-[#333] m-0">{{ preset.name }}</h3>
+            <p class="text-[0.9rem] text-[#666] leading-[1.4] m-0">{{ preset.description }}</p>
+            <div class="flex flex-col gap-2 pt-3 border-t border-[rgba(138,43,226,0.1)]">
+              <div class="flex items-center gap-2 text-[0.85rem]">
+                <span class="font-semibold text-[#8a2be2] min-w-[50px]">Mode:</span>
+                <span class="text-[#555] italic">{{ getModeLabel(preset.gameMode) }}</span>
               </div>
-              <div v-if="preset.rules.length > 0" class="detail-item">
-                <span class="detail-label">Rules:</span>
-                <span class="detail-value">{{ getRulesLabel(preset.rules) }}</span>
+              <div v-if="preset.rules.length > 0" class="flex items-center gap-2 text-[0.85rem]">
+                <span class="font-semibold text-[#8a2be2] min-w-[50px]">Rules:</span>
+                <span class="text-[#555] italic">{{ getRulesLabel(preset.rules) }}</span>
               </div>
-              <div v-if="preset.timeLimit" class="detail-item">
-                <span class="detail-label">Time:</span>
-                <span class="detail-value">{{ preset.timeLimit }}s per move</span>
+              <div v-if="preset.timeLimit" class="flex items-center gap-2 text-[0.85rem]">
+                <span class="font-semibold text-[#8a2be2] min-w-[50px]">Time:</span>
+                <span class="text-[#555] italic">{{ preset.timeLimit }}s per move</span>
               </div>
             </div>
-            <div v-if="preset.disabled" class="disabled-badge">Coming Soon</div>
+            <div v-if="preset.disabled" class="absolute top-4 right-4 bg-gradient-to-br from-[#ff6b6b] to-[#ff4757] text-white py-1 px-3 rounded-xl text-xs font-semibold uppercase">Coming Soon</div>
           </div>
         </div>
       </div>
 
       <!-- Controls -->
-      <div class="parliament-controls">
-        <button @click="$emit('close')" class="control-btn close-btn">
-          <span class="btn-icon">🚪</span>
+      <div class="flex justify-center gap-4 pt-4 border-t-2 border-[rgba(138,43,226,0.1)]">
+        <button @click="$emit('close')" class="flex items-center gap-2 py-3 px-6 text-base font-semibold border-2 border-transparent rounded-xl cursor-pointer transition-all duration-300 bg-gradient-to-br from-[#667eea] to-[#764ba2] text-white hover:-translate-y-0.5 hover:bg-gradient-to-br hover:from-[#7788ff] hover:to-[#8855cc] hover:shadow-[0_5px_15px_rgba(138,43,226,0.2)]">
+          <span class="text-[1.2rem]">🚪</span>
           <span>Close</span>
         </button>
       </div>
@@ -255,42 +255,10 @@ if (typeof window !== 'undefined') {
 </script>
 
 <style scoped>
-.parliament-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  animation: overlayFadeIn 0.3s ease;
-}
-
+/* Keyframe animations */
 @keyframes overlayFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.parliament-popup {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(240, 240, 255, 0.95));
-  border-radius: 24px;
-  padding: 2rem;
-  max-width: 90vw;
-  max-height: 85vh;
-  overflow-y: auto;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.5),
-    inset 0 0 60px rgba(255, 255, 255, 0.3);
-  animation: popupSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes popupSlideIn {
@@ -304,45 +272,7 @@ if (typeof window !== 'undefined') {
   }
 }
 
-.parliament-header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.parliament-title {
-  font-size: 2rem;
-  font-weight: 800;
-  background: linear-gradient(90deg, #8a2be2, #ff7730, #ff1493);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0;
-}
-
-.parliament-subtitle {
-  color: #666;
-  font-size: 1rem;
-  margin: 0.5rem 0 0 0;
-  font-style: italic;
-}
-
-.presets-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.preset-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(240, 245, 255, 0.8));
-  border: 2px solid rgba(138, 43, 226, 0.2);
-  border-radius: 16px;
-  padding: 1.5rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
+/* State-based styling */
 .preset-card:hover:not(.disabled) {
   transform: translateY(-5px);
   border-color: rgba(138, 43, 226, 0.5);
@@ -361,141 +291,7 @@ if (typeof window !== 'undefined') {
   filter: grayscale(0.5);
 }
 
-.preset-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-}
-
-.preset-icon {
-  font-size: 2.5rem;
-  width: 60px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, rgba(138, 43, 226, 0.1), rgba(255, 119, 48, 0.1));
-  border-radius: 12px;
-}
-
-.favorite-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  padding: 0.25rem;
-  opacity: 0.3;
-}
-
-.favorite-btn:hover {
-  opacity: 1;
-  transform: scale(1.2);
-}
-
 .favorite-btn.active {
   opacity: 1;
-}
-
-.preset-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.preset-name {
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: #333;
-  margin: 0;
-}
-
-.preset-description {
-  font-size: 0.9rem;
-  color: #666;
-  line-height: 1.4;
-  margin: 0;
-}
-
-.preset-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgba(138, 43, 226, 0.1);
-}
-
-.detail-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-}
-
-.detail-label {
-  font-weight: 600;
-  color: #8a2be2;
-  min-width: 50px;
-}
-
-.detail-value {
-  color: #555;
-  font-style: italic;
-}
-
-.disabled-badge {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: linear-gradient(135deg, #ff6b6b, #ff4757);
-  color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.parliament-controls {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  padding-top: 1rem;
-  border-top: 2px solid rgba(138, 43, 226, 0.1);
-}
-
-.control-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  border: 2px solid rgba(138, 43, 226, 0.3);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(240, 240, 255, 0.8));
-}
-
-.control-btn:hover {
-  transform: translateY(-2px);
-  border-color: rgba(138, 43, 226, 0.6);
-  box-shadow: 0 5px 15px rgba(138, 43, 226, 0.2);
-}
-
-.close-btn {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border-color: transparent;
-}
-
-.close-btn:hover {
-  background: linear-gradient(135deg, #7788ff, #8855cc);
-}
-
-.btn-icon {
-  font-size: 1.2rem;
 }
 </style>

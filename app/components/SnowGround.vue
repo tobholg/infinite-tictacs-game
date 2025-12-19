@@ -5,8 +5,8 @@ const { isChristmasTheme } = useTheme()
 </script>
 
 <template>
-  <div v-if="isChristmasTheme" class="snow-ground" aria-hidden="true">
-    <svg viewBox="0 0 1440 40" preserveAspectRatio="none">
+  <div v-if="isChristmasTheme" class="fixed bottom-0 left-0 right-0 h-[25px] pointer-events-none z-[5]" aria-hidden="true">
+    <svg class="w-full h-full" viewBox="0 0 1440 40" preserveAspectRatio="none">
       <defs>
         <linearGradient id="snow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stop-color="rgba(255,255,255,0.95)" />
@@ -20,20 +20,3 @@ const { isChristmasTheme } = useTheme()
     </svg>
   </div>
 </template>
-
-<style scoped>
-.snow-ground {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 25px;
-  pointer-events: none;
-  z-index: 5;
-}
-
-.snow-ground svg {
-  width: 100%;
-  height: 100%;
-}
-</style>

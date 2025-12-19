@@ -44,25 +44,18 @@ const getFlakeStyle = (config: SnowflakeConfig) => ({
 </script>
 
 <template>
-  <div v-if="isChristmasTheme && !prefersReducedMotion" class="snow-container" aria-hidden="true">
+  <div v-if="isChristmasTheme && !prefersReducedMotion" class="fixed inset-0 pointer-events-none z-10 overflow-hidden" aria-hidden="true">
     <div
       v-for="(flake, i) in snowflakes"
       :key="i"
-      class="snowflake"
+      class="snowflake absolute -top-[10px] bg-[rgba(255,255,255,0.85)] rounded-full pointer-events-none will-change-transform"
       :style="getFlakeStyle(flake)"
     />
   </div>
 </template>
 
 <style scoped>
-.snow-container {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 10;
-  overflow: hidden;
-}
-
+/* Dynamic animation - must stay as CSS (uses runtime variables) */
 @keyframes snowfall {
   0% {
     transform: translateY(-10px) translateX(0) rotate(0deg);
@@ -81,13 +74,7 @@ const getFlakeStyle = (config: SnowflakeConfig) => ({
 }
 
 .snowflake {
-  position: absolute;
-  top: -10px;
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 50%;
-  pointer-events: none;
   animation: snowfall var(--duration) linear infinite;
   animation-delay: var(--delay);
-  will-change: transform;
 }
 </style>

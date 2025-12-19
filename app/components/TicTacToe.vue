@@ -77,54 +77,30 @@ const handleBackToMenu = () => {
 </script>
 
 <style scoped>
-/* When game is active, use full viewport layout */
+/* Game-active state - full viewport layout (conditional state, cannot be Tailwind) */
 .experience-shell.game-active {
   place-items: stretch;
   padding: 0;
 }
 
-/* Full-screen layout when game is active */
 .experience-shell.game-active .experience-content {
   width: 100%;
   max-width: 100%;
   height: 100vh;
   gap: 0;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
+  padding: 0.75rem 1rem;
 }
 
-/* Compact header when game is active */
-.experience-shell.game-active header {
-  margin-bottom: 0;
-  padding: var(--space-2) 0;
-}
-
-/* Shrink title dramatically in game mode */
-.experience-shell.game-active .heading-display {
-  font-size: var(--text-lg);
-  line-height: 1.2;
-}
-
-/* Shrink subtitle in game mode */
-.experience-shell.game-active header p {
-  font-size: var(--text-xs);
-  margin-top: var(--space-1);
-}
-
-/* Let players strip flow naturally in game layout */
 .experience-shell.game-active :deep(.players-strip) {
   width: 100%;
   max-width: 90vw;
 }
 
+/* Mobile responsive */
 @media (max-width: 720px) {
   .experience-shell {
-    padding: var(--space-5) var(--space-3);
-  }
-
-  .experience-shell.game-active > div:last-child > div:last-child {
-    width: 100%;
-    flex-wrap: wrap;
+    padding: 1.25rem 0.75rem;
   }
 }
 </style>

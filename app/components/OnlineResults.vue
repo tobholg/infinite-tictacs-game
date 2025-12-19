@@ -116,27 +116,27 @@ function handleLeave() {
 </script>
 
 <template>
-  <div class="results-wrapper">
+  <div class="min-h-screen p-6 flex flex-col items-center gap-8 max-w-[500px] mx-auto">
     <!-- Result Header -->
     <Motion
       :initial="{ opacity: 0, y: -20 }"
       :animate="{ opacity: 1, y: 0 }"
       :transition="{ duration: 0.5, easing: livelySpringEasing }"
-      class="result-header"
+      class="text-center w-full"
     >
-      <div v-if="lastRoundIsDraw" class="result-banner draw">
-        <span class="result-icon">&#129309;</span>
-        <h1 class="result-title">It's a Draw!</h1>
-        <p class="result-subtitle">No winner this round</p>
+      <div v-if="lastRoundIsDraw" class="result-banner draw flex flex-col items-center gap-3 p-6 bg-surface border-2 border-border rounded-xl bg-gradient-to-br from-[rgba(99,102,241,0.1)] to-[rgba(139,92,246,0.1)] border-[rgba(99,102,241,0.3)]">
+        <span class="text-[3rem]">&#129309;</span>
+        <h1 class="text-2xl font-bold text-text-primary m-0">It's a Draw!</h1>
+        <p class="text-base text-text-muted m-0">No winner this round</p>
       </div>
-      <div v-else class="result-banner victory" :class="{ 'is-me': isWinner }">
-        <div v-if="lastRoundWinnerSymbol" class="winner-symbol" :class="`symbol-${lastRoundWinnerSymbol.toLowerCase()}`">
+      <div v-else class="result-banner victory flex flex-col items-center gap-3 p-6 bg-surface border-2 rounded-xl" :class="{ 'is-me': isWinner }">
+        <div v-if="lastRoundWinnerSymbol" class="winner-symbol p-4 rounded-full bg-[rgba(250,204,21,0.15)]" :class="`symbol-${lastRoundWinnerSymbol.toLowerCase()}`">
           <component :is="getSymbolComponent(lastRoundWinnerSymbol)" :size="48" :stroke-width="3" />
         </div>
-        <h1 class="result-title">
+        <h1 class="result-title text-2xl font-bold m-0">
           {{ isWinner ? 'You Win!' : `${lastRoundWinner} Wins!` }}
         </h1>
-        <p class="result-subtitle">4 in a row achieved!</p>
+        <p class="text-base text-text-muted m-0">4 in a row achieved!</p>
       </div>
     </Motion>
 
@@ -145,31 +145,31 @@ function handleLeave() {
       :initial="{ opacity: 0, y: 20 }"
       :animate="{ opacity: 1, y: 0 }"
       :transition="{ duration: 0.5, delay: 0.2, easing: livelySpringEasing }"
-      class="scoreboard-section"
+      class="w-full flex flex-col gap-4"
     >
-      <h2 class="section-title">Scoreboard</h2>
-      <div class="scoreboard">
+      <h2 class="text-lg font-semibold text-text-primary text-center m-0">Scoreboard</h2>
+      <div class="flex flex-col gap-2">
         <Motion
           v-for="(player, index) in sortedPlayers"
           :key="player.id"
           :initial="{ opacity: 0, x: -20 }"
           :animate="{ opacity: 1, x: 0 }"
           :transition="{ duration: 0.3, delay: 0.3 + index * 0.1, easing: livelySpringEasing }"
-          class="score-row"
+          class="score-row flex items-center gap-3 py-3 px-4 bg-surface border border-border rounded-md transition-all duration-200"
           :class="{
             'is-winner': player.id === lastRoundWinnerId,
             'is-me': player.id === myPlayer?.id
           }"
         >
-          <span class="rank">{{ index + 1 }}</span>
-          <div class="player-info">
-            <div class="player-symbol" :class="`symbol-${player.symbol.toLowerCase()}`">
+          <span class="rank w-7 h-7 flex items-center justify-center bg-surface-elevated rounded-full text-sm font-semibold text-text-muted">{{ index + 1 }}</span>
+          <div class="flex-1 flex items-center gap-2">
+            <div class="player-symbol w-8 h-8 flex items-center justify-center" :class="`symbol-${player.symbol.toLowerCase()}`">
               <component :is="getSymbolComponent(player.symbol)" :size="24" :stroke-width="3" />
             </div>
-            <span class="player-name">{{ player.name }}</span>
-            <span v-if="player.id === myPlayer?.id" class="you-badge">You</span>
+            <span class="text-base font-medium text-text-primary">{{ player.name }}</span>
+            <span v-if="player.id === myPlayer?.id" class="py-[2px] px-1.5 bg-[rgba(99,102,241,0.2)] rounded-sm text-xs font-semibold text-[#a5b4fc]">You</span>
           </div>
-          <span class="score">{{ scoreboard[player.id] || 0 }}</span>
+          <span class="text-xl font-bold text-text-primary min-w-[40px] text-right">{{ scoreboard[player.id] || 0 }}</span>
         </Motion>
       </div>
     </Motion>
@@ -179,24 +179,24 @@ function handleLeave() {
       :initial="{ opacity: 0, y: 20 }"
       :animate="{ opacity: 1, y: 0 }"
       :transition="{ duration: 0.5, delay: 0.5, easing: livelySpringEasing }"
-      class="actions-section"
+      class="flex flex-col items-center gap-4 w-full"
     >
       <button
         v-if="isHost"
-        class="primary-btn"
+        class="primary-btn w-full p-4 bg-gradient-to-br from-primary to-[#4f46e5] border-none rounded-md text-white text-lg font-semibold cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(99,102,241,0.3)] disabled:cursor-not-allowed disabled:opacity-80"
         :class="{ 'is-starting': isStartingNextRound }"
         :disabled="isStartingNextRound"
         @click="handlePlayAgain"
       >
         {{ isStartingNextRound ? 'Resetting...' : 'Play Again' }}
       </button>
-      <p v-else class="waiting-text">
+      <p v-else class="waiting-text text-sm text-text-muted">
         Waiting for host to start next round...
       </p>
-      <button v-if="isHost" class="tertiary-btn" @click="handleBackToLobby">
+      <button v-if="isHost" class="w-full py-3 px-5 bg-transparent border border-border rounded-md text-text-secondary text-base cursor-pointer transition-all duration-200 hover:bg-surface hover:border-primary hover:text-primary" @click="handleBackToLobby">
         Back to Lobby
       </button>
-      <button class="secondary-btn" @click="handleLeave">
+      <button class="py-3 px-5 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-surface-elevated hover:text-text-primary" @click="handleLeave">
         Leave Game
       </button>
     </Motion>
@@ -204,34 +204,7 @@ function handleLeave() {
 </template>
 
 <style scoped>
-.results-wrapper {
-  min-height: 100vh;
-  padding: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-8);
-  max-width: 500px;
-  margin: 0 auto;
-}
-
-/* Result Header */
-.result-header {
-  text-align: center;
-  width: 100%;
-}
-
-.result-banner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-6);
-  background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-xl);
-}
-
+/* Victory/Result banner states */
 .result-banner.victory {
   background: linear-gradient(135deg, rgba(250, 204, 21, 0.1), rgba(251, 146, 60, 0.1));
   border-color: rgba(250, 204, 21, 0.3);
@@ -242,39 +215,6 @@ function handleLeave() {
   border-color: rgba(34, 197, 94, 0.3);
 }
 
-.result-banner.draw {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-  border-color: rgba(99, 102, 241, 0.3);
-}
-
-.result-icon {
-  font-size: 3rem;
-}
-
-.winner-symbol {
-  padding: var(--space-4);
-  border-radius: 50%;
-  background: rgba(250, 204, 21, 0.15);
-}
-
-.winner-symbol.symbol-x { color: var(--glow-x); }
-.winner-symbol.symbol-o { color: var(--glow-o); }
-.winner-symbol.symbol-square { color: var(--glow-square); }
-.winner-symbol.symbol-star { color: var(--glow-star); }
-.winner-symbol.symbol-triangle { color: var(--glow-triangle); }
-.winner-symbol.symbol-diamond { color: var(--glow-diamond); }
-.winner-symbol.symbol-circle { color: var(--glow-circle); }
-.winner-symbol.symbol-plus { color: var(--glow-plus); }
-.winner-symbol.symbol-heart { color: var(--glow-heart); }
-.winner-symbol.symbol-pentagon { color: var(--glow-pentagon); }
-
-.result-title {
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
 .result-banner.victory .result-title {
   color: #fcd34d;
 }
@@ -283,45 +223,31 @@ function handleLeave() {
   color: var(--color-success);
 }
 
-.result-subtitle {
-  font-size: var(--text-base);
-  color: var(--color-text-muted);
-  margin: 0;
-}
+/* Winner symbol colors */
+.winner-symbol.symbol-x { color: var(--neon-cyan); }
+.winner-symbol.symbol-o { color: var(--neon-pink); }
+.winner-symbol.symbol-square { color: var(--neon-purple); }
+.winner-symbol.symbol-star { color: var(--neon-orange); }
+.winner-symbol.symbol-triangle { color: var(--neon-green); }
+.winner-symbol.symbol-diamond { color: var(--neon-blue); }
+.winner-symbol.symbol-circle { color: var(--neon-yellow); }
+.winner-symbol.symbol-plus { color: var(--neon-red); }
+.winner-symbol.symbol-heart { color: var(--neon-teal); }
+.winner-symbol.symbol-pentagon { color: var(--neon-lime); }
 
-/* Scoreboard Section */
-.scoreboard-section {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
+/* Player symbol colors */
+.player-symbol.symbol-x { color: var(--neon-cyan); }
+.player-symbol.symbol-o { color: var(--neon-pink); }
+.player-symbol.symbol-square { color: var(--neon-purple); }
+.player-symbol.symbol-star { color: var(--neon-orange); }
+.player-symbol.symbol-triangle { color: var(--neon-green); }
+.player-symbol.symbol-diamond { color: var(--neon-blue); }
+.player-symbol.symbol-circle { color: var(--neon-yellow); }
+.player-symbol.symbol-plus { color: var(--neon-red); }
+.player-symbol.symbol-heart { color: var(--neon-teal); }
+.player-symbol.symbol-pentagon { color: var(--neon-lime); }
 
-.section-title {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  text-align: center;
-  margin: 0;
-}
-
-.scoreboard {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.score-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-}
-
+/* Score row states */
 .score-row.is-winner {
   background: rgba(250, 204, 21, 0.1);
   border-color: rgba(250, 204, 21, 0.3);
@@ -331,19 +257,7 @@ function handleLeave() {
   border-color: var(--color-primary);
 }
 
-.rank {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface-elevated);
-  border-radius: 50%;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
+/* Rank styling for top 3 */
 .score-row:nth-child(1) .rank {
   background: linear-gradient(135deg, #fcd34d, #f59e0b);
   color: #1f2937;
@@ -359,130 +273,15 @@ function handleLeave() {
   color: white;
 }
 
-.player-info {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.player-symbol {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.player-symbol.symbol-x { color: var(--glow-x); }
-.player-symbol.symbol-o { color: var(--glow-o); }
-.player-symbol.symbol-square { color: var(--glow-square); }
-.player-symbol.symbol-star { color: var(--glow-star); }
-.player-symbol.symbol-triangle { color: var(--glow-triangle); }
-.player-symbol.symbol-diamond { color: var(--glow-diamond); }
-.player-symbol.symbol-circle { color: var(--glow-circle); }
-.player-symbol.symbol-plus { color: var(--glow-plus); }
-.player-symbol.symbol-heart { color: var(--glow-heart); }
-.player-symbol.symbol-pentagon { color: var(--glow-pentagon); }
-
-.player-name {
-  font-size: var(--text-base);
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-
-.you-badge {
-  padding: 2px 6px;
-  background: rgba(99, 102, 241, 0.2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: #a5b4fc;
-}
-
-.score {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  min-width: 40px;
-  text-align: right;
-}
-
-/* Actions Section */
-.actions-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
-  width: 100%;
-}
-
-.primary-btn {
-  width: 100%;
-  padding: var(--space-4);
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  border: none;
-  border-radius: var(--radius-md);
-  color: white;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.primary-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
-}
-
-.primary-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.8;
-}
-
+/* Primary button starting state */
 .primary-btn.is-starting {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.7), rgba(79, 70, 229, 0.7));
   transform: translateY(1px);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.secondary-btn {
-  padding: var(--space-3) var(--space-5);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.secondary-btn:hover {
-  background: var(--color-surface-elevated);
-  color: var(--color-text-primary);
-}
-
-.tertiary-btn {
-  width: 100%;
-  padding: var(--space-3) var(--space-5);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-base);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tertiary-btn:hover {
-  background: var(--color-surface);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
+/* Waiting text animation */
 .waiting-text {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
   animation: pulse 2s infinite;
 }
 

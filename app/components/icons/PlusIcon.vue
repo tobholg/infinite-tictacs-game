@@ -5,7 +5,7 @@
     viewBox="0 0 24 24"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
-    :class="{ 'icon-glow': glow }"
+    :class="{ 'drop-shadow-[0_0_8px_currentColor]': glow }"
   >
     <defs>
       <filter id="glow-plus" x="-50%" y="-50%" width="200%" height="200%">
@@ -44,8 +44,3 @@ withDefaults(defineProps<Props>(), {
 })
 </script>
 
-<style scoped>
-.icon-glow {
-  filter: drop-shadow(0 0 8px currentColor);
-}
-</style>

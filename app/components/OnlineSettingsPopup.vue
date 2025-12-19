@@ -55,57 +55,57 @@ function handleOverlayClick(e: MouseEvent) {
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="isOpen" class="modal-overlay" @click="handleOverlayClick">
+      <div v-if="isOpen" class="modal-overlay fixed inset-0 bg-[rgba(0,0,0,0.7)] backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4" @click="handleOverlayClick">
         <Motion
           :initial="{ opacity: 0, scale: 0.95, y: 20 }"
           :animate="{ opacity: 1, scale: 1, y: 0 }"
           :transition="{ duration: 0.3, easing: 'ease-out' }"
-          class="modal-container"
+          class="modal-container bg-surface border-2 border-border rounded-lg max-w-[500px] w-full max-h-[90vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
         >
           <!-- Header -->
-          <div class="modal-header">
-            <h2 class="modal-title">Online Settings</h2>
-            <button class="modal-close-btn" @click="handleClose" title="Close">
+          <div class="modal-header flex items-center justify-between p-4 border-b border-border sticky top-0 bg-surface z-10">
+            <h2 class="m-0 font-display text-xl font-bold text-text-primary">Online Settings</h2>
+            <button class="modal-close-btn w-9 h-9 grid place-items-center bg-bg-muted border border-border rounded-md cursor-pointer text-2xl text-text-secondary transition-all duration-200 leading-none hover:border-critical hover:text-critical hover:rotate-90" @click="handleClose" title="Close">
               &times;
             </button>
           </div>
 
           <!-- Body -->
-          <div class="modal-body">
+          <div class="modal-body p-4 flex flex-col gap-5">
             <!-- Theme Selector -->
-            <section class="settings-section">
-              <h3 class="section-title">Theme</h3>
-              <div class="theme-options">
-                <label class="theme-option" :class="{ active: themePreference === 'auto' }">
-                  <input type="radio" name="theme" value="auto" :checked="themePreference === 'auto'" @change="setPreference('auto')" />
-                  <span class="theme-icon">🎄</span>
-                  <span class="theme-label">Auto</span>
-                  <span class="theme-hint">{{ isDecember ? 'Christmas active' : 'Default active' }}</span>
+            <section class="flex flex-col gap-3">
+              <h3 class="m-0 text-sm font-semibold text-text-secondary uppercase tracking-wider">Theme</h3>
+              <div class="grid grid-cols-3 gap-2 max-sm:grid-cols-1">
+                <label class="theme-option flex flex-col items-center gap-1 p-3 bg-bg-muted border-2 border-border rounded-md cursor-pointer transition-all duration-200 text-center hover:border-accent hover:-translate-y-0.5" :class="{ active: themePreference === 'auto' }">
+                  <input type="radio" name="theme" value="auto" :checked="themePreference === 'auto'" @change="setPreference('auto')" class="hidden" />
+                  <span class="text-[1.75rem]">🎄</span>
+                  <span class="font-semibold text-sm text-text-primary">Auto</span>
+                  <span class="text-xs text-text-tertiary">{{ isDecember ? 'Christmas active' : 'Default active' }}</span>
                 </label>
-                <label class="theme-option" :class="{ active: themePreference === 'christmas' }">
-                  <input type="radio" name="theme" value="christmas" :checked="themePreference === 'christmas'" @change="setPreference('christmas')" />
-                  <span class="theme-icon">❄️</span>
-                  <span class="theme-label">Christmas</span>
-                  <span class="theme-hint">Always festive</span>
+                <label class="theme-option flex flex-col items-center gap-1 p-3 bg-bg-muted border-2 border-border rounded-md cursor-pointer transition-all duration-200 text-center hover:border-accent hover:-translate-y-0.5" :class="{ active: themePreference === 'christmas' }">
+                  <input type="radio" name="theme" value="christmas" :checked="themePreference === 'christmas'" @change="setPreference('christmas')" class="hidden" />
+                  <span class="text-[1.75rem]">❄️</span>
+                  <span class="font-semibold text-sm text-text-primary">Christmas</span>
+                  <span class="text-xs text-text-tertiary">Always festive</span>
                 </label>
-                <label class="theme-option" :class="{ active: themePreference === 'default' }">
-                  <input type="radio" name="theme" value="default" :checked="themePreference === 'default'" @change="setPreference('default')" />
-                  <span class="theme-icon">🌙</span>
-                  <span class="theme-label">Default</span>
-                  <span class="theme-hint">Classic neon</span>
+                <label class="theme-option flex flex-col items-center gap-1 p-3 bg-bg-muted border-2 border-border rounded-md cursor-pointer transition-all duration-200 text-center hover:border-accent hover:-translate-y-0.5" :class="{ active: themePreference === 'default' }">
+                  <input type="radio" name="theme" value="default" :checked="themePreference === 'default'" @change="setPreference('default')" class="hidden" />
+                  <span class="text-[1.75rem]">🌙</span>
+                  <span class="font-semibold text-sm text-text-primary">Default</span>
+                  <span class="text-xs text-text-tertiary">Classic neon</span>
                 </label>
               </div>
             </section>
 
             <!-- Expansion Animation Selector -->
-            <section class="settings-section">
-              <h3 class="section-title">Board Expansion Animation</h3>
-              <p class="section-description">Choose how new rows and columns animate when the board expands</p>
-              <div class="animation-options">
+            <section class="flex flex-col gap-3">
+              <h3 class="m-0 text-sm font-semibold text-text-secondary uppercase tracking-wider">Board Expansion Animation</h3>
+              <p class="m-0 text-xs text-text-muted">Choose how new rows and columns animate when the board expands</p>
+              <div class="flex flex-col gap-2">
                 <label
                   v-for="mode in animationModes"
                   :key="mode.value"
-                  class="animation-option"
+                  class="animation-option flex items-center gap-3 p-3 bg-bg-muted border-2 border-border rounded-md cursor-pointer transition-all duration-200 hover:border-accent hover:-translate-y-px"
                   :class="{ active: expansionAnimationMode === mode.value }"
                 >
                   <input
@@ -114,57 +114,61 @@ function handleOverlayClick(e: MouseEvent) {
                     :value="mode.value"
                     :checked="expansionAnimationMode === mode.value"
                     @change="setExpansionAnimationMode(mode.value)"
+                    class="hidden"
                   />
-                  <span class="animation-icon">{{ mode.icon }}</span>
-                  <div class="animation-info">
-                    <span class="animation-label">{{ mode.label }}</span>
-                    <span class="animation-hint">{{ mode.description }}</span>
+                  <span class="text-2xl flex-shrink-0">{{ mode.icon }}</span>
+                  <div class="flex flex-col gap-[2px]">
+                    <span class="font-semibold text-sm text-text-primary">{{ mode.label }}</span>
+                    <span class="text-xs text-text-secondary">{{ mode.description }}</span>
                   </div>
                 </label>
               </div>
             </section>
 
             <!-- Blocked Cells Appearance -->
-            <section class="settings-section">
-              <h3 class="section-title">Blocked Cells Appearance</h3>
-              <p class="section-description">Choose how unavailable cells are displayed during gameplay</p>
-              <div class="effects-grid">
-                <label class="effect-card" :class="{ active: cantPlaceEffects.dimmedCells }">
+            <section class="flex flex-col gap-3">
+              <h3 class="m-0 text-sm font-semibold text-text-secondary uppercase tracking-wider">Blocked Cells Appearance</h3>
+              <p class="m-0 text-xs text-text-muted">Choose how unavailable cells are displayed during gameplay</p>
+              <div class="flex flex-col gap-2">
+                <label class="effect-card relative flex items-start gap-3 p-3 bg-bg-muted border-2 border-border rounded-md cursor-pointer transition-all duration-200 hover:border-[rgba(168,85,247,0.5)] hover:-translate-y-0.5" :class="{ active: cantPlaceEffects.dimmedCells }">
                   <input
                     type="checkbox"
                     :checked="cantPlaceEffects.dimmedCells"
                     @change="updateCantPlaceEffect('dimmedCells', ($event.target as HTMLInputElement).checked)"
+                    class="hidden"
                   />
-                  <span class="effect-icon">🌘</span>
-                  <div class="effect-info">
-                    <h4 class="effect-name">Dimmed Cells</h4>
-                    <p class="effect-description">Lower opacity on unavailable cells for subtle depth</p>
+                  <span class="text-2xl flex-shrink-0">🌘</span>
+                  <div class="flex-1 flex flex-col gap-1">
+                    <h4 class="m-0 text-sm font-semibold text-text-primary">Dimmed Cells</h4>
+                    <p class="m-0 text-xs text-text-secondary leading-[1.4]">Lower opacity on unavailable cells for subtle depth</p>
                   </div>
                 </label>
 
-                <label class="effect-card" :class="{ active: cantPlaceEffects.stripedPattern }">
+                <label class="effect-card relative flex items-start gap-3 p-3 bg-bg-muted border-2 border-border rounded-md cursor-pointer transition-all duration-200 hover:border-[rgba(168,85,247,0.5)] hover:-translate-y-0.5" :class="{ active: cantPlaceEffects.stripedPattern }">
                   <input
                     type="checkbox"
                     :checked="cantPlaceEffects.stripedPattern"
                     @change="updateCantPlaceEffect('stripedPattern', ($event.target as HTMLInputElement).checked)"
+                    class="hidden"
                   />
-                  <span class="effect-icon">▧</span>
-                  <div class="effect-info">
-                    <h4 class="effect-name">Striped Pattern</h4>
-                    <p class="effect-description">Diagonal lines to clearly mark blocked zones</p>
+                  <span class="text-2xl flex-shrink-0">▧</span>
+                  <div class="flex-1 flex flex-col gap-1">
+                    <h4 class="m-0 text-sm font-semibold text-text-primary">Striped Pattern</h4>
+                    <p class="m-0 text-xs text-text-secondary leading-[1.4]">Diagonal lines to clearly mark blocked zones</p>
                   </div>
                 </label>
 
-                <label class="effect-card" :class="{ active: cantPlaceEffects.warningIcon }">
+                <label class="effect-card relative flex items-start gap-3 p-3 bg-bg-muted border-2 border-border rounded-md cursor-pointer transition-all duration-200 hover:border-[rgba(168,85,247,0.5)] hover:-translate-y-0.5" :class="{ active: cantPlaceEffects.warningIcon }">
                   <input
                     type="checkbox"
                     :checked="cantPlaceEffects.warningIcon"
                     @change="updateCantPlaceEffect('warningIcon', ($event.target as HTMLInputElement).checked)"
+                    class="hidden"
                   />
-                  <span class="effect-icon">⚠️</span>
-                  <div class="effect-info">
-                    <h4 class="effect-name">Warning Badge</h4>
-                    <p class="effect-description">Show indicator icon on non-playable cells</p>
+                  <span class="text-2xl flex-shrink-0">⚠️</span>
+                  <div class="flex-1 flex flex-col gap-1">
+                    <h4 class="m-0 text-sm font-semibold text-text-primary">Warning Badge</h4>
+                    <p class="m-0 text-xs text-text-secondary leading-[1.4]">Show indicator icon on non-playable cells</p>
                   </div>
                 </label>
               </div>
@@ -173,8 +177,8 @@ function handleOverlayClick(e: MouseEvent) {
           </div>
 
           <!-- Footer -->
-          <div class="modal-footer">
-            <button class="btn btn-primary" @click="handleClose">Done</button>
+          <div class="modal-footer flex justify-end p-4 border-t border-border sticky bottom-0 bg-surface z-10">
+            <button class="btn btn-primary inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full font-semibold text-base transition-all duration-200 cursor-pointer border border-transparent bg-gradient-to-br from-accent to-accent-strong text-white hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(99,102,241,0.3)]" @click="handleClose">Done</button>
           </div>
         </Motion>
       </div>
@@ -183,175 +187,11 @@ function handleOverlayClick(e: MouseEvent) {
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: var(--space-4);
-}
-
-.modal-container {
-  background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  max-width: 500px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
-  background: var(--color-surface);
-  z-index: 10;
-}
-
-.modal-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.modal-close-btn {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 1.5rem;
-  color: var(--color-text-secondary);
-  transition: all var(--transition-base);
-  line-height: 1;
-}
-
-.modal-close-btn:hover {
-  border-color: var(--color-critical);
-  color: var(--color-critical);
-  transform: rotate(90deg);
-}
-
-.modal-body {
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.settings-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.section-title {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* Theme Options */
-.theme-options {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-2);
-}
-
-.theme-option {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-base);
-  text-align: center;
-}
-
-.theme-option input {
-  display: none;
-}
-
-.theme-option:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
-}
-
+/* Active states for options */
 .theme-option.active {
   background: var(--color-accent-soft);
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.theme-icon {
-  font-size: 1.75rem;
-}
-
-.theme-label {
-  font-weight: 600;
-  font-size: var(--text-sm);
-  color: var(--color-text-primary);
-}
-
-.theme-hint {
-  font-size: var(--text-xs);
-  color: var(--color-text-tertiary);
-}
-
-.section-description {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
-
-/* Animation Options */
-.animation-options {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.animation-option {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.animation-option input {
-  display: none;
-}
-
-.animation-option:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-1px);
 }
 
 .animation-option.active {
@@ -360,125 +200,10 @@ function handleOverlayClick(e: MouseEvent) {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
-.animation-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.animation-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.animation-label {
-  font-weight: 600;
-  font-size: var(--text-sm);
-  color: var(--color-text-primary);
-}
-
-.animation-hint {
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-}
-
-/* Effects Grid (Blocked Cells) */
-.effects-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.effect-card {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.effect-card input {
-  display: none;
-}
-
-.effect-card:hover {
-  border-color: rgba(168, 85, 247, 0.5);
-  transform: translateY(-2px);
-}
-
 .effect-card.active {
   background: rgba(168, 85, 247, 0.1);
   border-color: rgba(168, 85, 247, 0.5);
   box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
-}
-
-.effect-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.effect-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.effect-name {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.effect-description {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-}
-
-/* Footer */
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  padding: var(--space-4);
-  border-top: 1px solid var(--color-border);
-  position: sticky;
-  bottom: 0;
-  background: var(--color-surface);
-  z-index: 10;
-}
-
-/* Button */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-  font-size: var(--text-md);
-  transition: all var(--transition-base);
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-strong));
-  color: white;
-  border-color: var(--color-accent);
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
 }
 
 /* Modal Transitions */
@@ -490,12 +215,5 @@ function handleOverlayClick(e: MouseEvent) {
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
-}
-
-/* Responsive */
-@media (max-width: 600px) {
-  .theme-options {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

@@ -5,9 +5,9 @@ const { isChristmasTheme } = useTheme()
 </script>
 
 <template>
-  <div v-if="isChristmasTheme" class="christmas-decorations" aria-hidden="true">
+  <div v-if="isChristmasTheme" class="fixed inset-0 pointer-events-none z-[5]" aria-hidden="true">
     <!-- Top-left holly -->
-    <svg class="decoration top-left" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg class="absolute w-[60px] h-[60px] md:w-[80px] md:h-[80px] top-2 left-2 md:top-3 md:left-3" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
       <g opacity="0.35">
         <!-- Holly leaves -->
         <path d="M20 40 C15 35, 10 25, 20 15 C25 20, 30 25, 35 30 C30 35, 25 40, 20 40Z" fill="#2d5a27"/>
@@ -21,7 +21,7 @@ const { isChristmasTheme } = useTheme()
     </svg>
 
     <!-- Top-right holly (mirrored) -->
-    <svg class="decoration top-right" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg class="absolute w-[60px] h-[60px] md:w-[80px] md:h-[80px] top-2 right-2 md:top-3 md:right-3" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
       <g opacity="0.35" transform="scale(-1, 1) translate(-80, 0)">
         <!-- Holly leaves -->
         <path d="M20 40 C15 35, 10 25, 20 15 C25 20, 30 25, 35 30 C30 35, 25 40, 20 40Z" fill="#2d5a27"/>
@@ -35,45 +35,3 @@ const { isChristmasTheme } = useTheme()
     </svg>
   </div>
 </template>
-
-<style scoped>
-.christmas-decorations {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 5;
-}
-
-.decoration {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-}
-
-.top-left {
-  top: 8px;
-  left: 8px;
-}
-
-.top-right {
-  top: 8px;
-  right: 8px;
-}
-
-@media (min-width: 768px) {
-  .decoration {
-    width: 80px;
-    height: 80px;
-  }
-
-  .top-left {
-    top: 12px;
-    left: 12px;
-  }
-
-  .top-right {
-    top: 12px;
-    right: 12px;
-  }
-}
-</style>

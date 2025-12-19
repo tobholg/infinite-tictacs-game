@@ -606,10 +606,10 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
 </script>
 
 <template>
-  <div class="online-game-board-wrapper">
+  <div class="w-full max-w-[720px] flex flex-col items-center gap-3 overflow-visible relative z-[1] p-4 mx-auto">
     <!-- Spectator Banner -->
-    <div v-if="isSpectator" class="spectator-banner">
-      <span class="spectator-icon">&#128065;</span>
+    <div v-if="isSpectator" class="flex items-center justify-center gap-2 py-2 px-4 bg-gradient-to-br from-[rgba(99,102,241,0.15)] to-[rgba(139,92,246,0.15)] border border-dashed border-primary rounded-md text-text-secondary text-sm font-medium">
+      <span class="text-[1.1em]">&#128065;</span>
       <span>Spectating - Watch only mode</span>
     </div>
 
@@ -618,7 +618,7 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
       v-if="error"
       :initial="{ opacity: 0, y: -10 }"
       :animate="{ opacity: 1, y: 0 }"
-      class="error-banner"
+      class="py-3 px-4 bg-[rgba(239,68,68,0.15)] border border-[rgba(239,68,68,0.3)] rounded-md text-[#fca5a5] text-sm text-center"
     >
       {{ error }}
     </Motion>
@@ -629,9 +629,9 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
       :initial="{ opacity: 0, y: -10, scale: 0.95 }"
       :animate="{ opacity: 1, y: 0, scale: 1 }"
       :exit="{ opacity: 0, y: -10 }"
-      class="timeout-banner"
+      class="timeout-banner flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-br from-[rgba(251,146,60,0.15)] to-[rgba(234,88,12,0.15)] border border-[rgba(251,146,60,0.4)] rounded-md text-[#fdba74] text-sm font-medium"
     >
-      <span class="timeout-icon">&#9203;</span>
+      <span class="text-[1.2em]">&#9203;</span>
       <span v-if="lastTimeoutAction === 'skip'">
         {{ lastTimeoutPlayerName }}'s turn was skipped (time ran out)
       </span>
@@ -651,29 +651,30 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
     />
 
     <!-- Board Info -->
-    <div class="board-info-row">
+    <div class="w-full max-w-[640px] flex flex-wrap justify-center gap-3 text-xs text-text-secondary">
       <span>Board: {{ boardSize.rows }} × {{ boardSize.cols }}</span>
       <span>Win: {{ winLength }} in a row</span>
-      <span v-if="isMyTurn && !isGameOver && !isSpectator" class="your-turn-indicator">Your Turn!</span>
+      <span v-if="isMyTurn && !isGameOver && !isSpectator" class="text-primary font-semibold animate-pulse">Your Turn!</span>
     </div>
 
     <!-- Game Board -->
-    <div class="board-container">
+    <div class="relative w-full flex justify-center">
       <!-- NOTE: Results overlay removed - WIN_REVEAL phase shows winning animation,
            then transitions to OnlineResults.vue for winner display and actions -->
 
       <!-- Board Viewport - handles overflow/scrolling -->
-      <div class="board-viewport">
+      <div class="board-viewport relative w-full max-w-full max-h-[70vh] overflow-auto flex justify-center items-center rounded-lg touch-none">
         <!-- Board Grid - handles transforms (zoom/pan) -->
         <div
           ref="boardElement"
-          class="board"
+          class="board grid gap-2 bg-bg rounded-lg p-4 border-none relative origin-center select-none transition-transform duration-100 ease-out"
           :class="{ 'is-panning': isPanning }"
           :style="{
             '--cell-size': `${cellSize}px`,
             '--grid-cols': boardSize.cols,
             gridTemplateColumns: `repeat(${boardSize.cols}, ${cellSize}px)`,
             gridTemplateRows: `repeat(${boardSize.rows}, ${cellSize}px)`,
+            boxShadow: 'inset 0 0 18px rgba(0, 217, 255, 0.12), 0 0 26px rgba(0, 217, 255, 0.26), 0 0 46px rgba(0, 217, 255, 0.2)',
             ...getBoardTransform()
           }"
         >
@@ -682,7 +683,7 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
             v-for="(cell, colIndex) in row"
             :key="`cell-${boardOffset.row + rowIndex}-${boardOffset.col + colIndex}`"
             tag="button"
-            class="cell"
+            class="cell relative aspect-square grid place-items-center rounded-xl bg-[rgba(26,29,53,0.6)] border-2 border-[rgba(0,217,255,0.2)] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-visible cursor-default"
             :class="getCellClasses(rowIndex, colIndex, cell)"
             :style="{ '--expansion-delay': getExpansionAnimationDelay(rowIndex, colIndex) }"
             :data-symbol="cell ? cell.toLowerCase() : undefined"
@@ -693,7 +694,7 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
             :transition="{ duration: 0.3, easing: livelySpringEasing }"
           >
             <!-- Warning icon for blocked cells -->
-            <div v-if="shouldShowWarningIcon(rowIndex, colIndex, cell)" class="not-playable-indicator" title="Not playable - Place moves adjacent to existing pieces">
+            <div v-if="shouldShowWarningIcon(rowIndex, colIndex, cell)" class="absolute top-1.5 right-1.5 z-[3] pointer-events-auto cursor-help p-[3px] rounded-full bg-[rgba(0,0,0,0.4)] flex items-center justify-center" title="Not playable - Place moves adjacent to existing pieces">
               <AlertIcon :size="16" color="rgba(251, 191, 36, 0.7)" :stroke-width="2" />
             </div>
             <component
@@ -701,9 +702,9 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
               :is="getSymbolComponent(cell)"
               :size="cellSize * 0.6"
               :stroke-width="4"
-              class="cell-icon"
+              class="grid place-items-center transition-transform duration-300 ease-out"
             />
-            <span v-else-if="isPendingCell(rowIndex, colIndex)" class="pending-indicator">...</span>
+            <span v-else-if="isPendingCell(rowIndex, colIndex)" class="pending-indicator text-xl text-text-muted">...</span>
           </Motion>
         </template>
       </div>
@@ -711,8 +712,8 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
     </div>
 
     <!-- Action Bar -->
-    <div class="action-bar">
-      <button class="leave-btn" @click="handleLeave">
+    <div class="flex justify-center p-3">
+      <button class="flex items-center gap-2 py-2 px-4 bg-surface border border-border rounded-md text-text-secondary text-sm cursor-pointer transition-all duration-200 hover:bg-[rgba(239,68,68,0.1)] hover:border-critical hover:text-critical" @click="handleLeave">
         <ExitIcon :size="18" />
         Leave Game
       </button>
@@ -721,361 +722,18 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
 </template>
 
 <style scoped>
-.online-game-board-wrapper {
-  width: min(720px, 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  overflow: visible;
-  position: relative;
-  z-index: 1;
-  padding: var(--space-4);
-  margin: 0 auto;
-}
-
-/* Spectator Banner */
-.spectator-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
-  border: 1px dashed var(--color-primary);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 500;
-}
-
-.spectator-icon {
-  font-size: 1.1em;
-}
-
-/* Error Banner */
-.error-banner {
-  padding: var(--space-3) var(--space-4);
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: var(--radius-md);
-  color: #fca5a5;
-  font-size: var(--text-sm);
-  text-align: center;
-}
-
-/* Timeout Banner */
-.timeout-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: linear-gradient(135deg, rgba(251, 146, 60, 0.15), rgba(234, 88, 12, 0.15));
-  border: 1px solid rgba(251, 146, 60, 0.4);
-  border-radius: var(--radius-md);
-  color: #fdba74;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  animation: timeoutPulse 2s ease-in-out;
-}
-
-.timeout-icon {
-  font-size: 1.2em;
-}
-
-@keyframes timeoutPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-/* Players Strip */
-.players-strip-wrapper {
-  position: relative;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: calc(var(--space-3) + 14px) var(--space-2);
-  overflow: visible;
-}
-
-.players-strip {
-  --chip-glow-space: 32px;
-  display: flex;
-  gap: var(--space-3);
-  overflow-x: auto;
-  overflow-y: visible;
-  padding: calc(var(--space-2) + 14px) var(--chip-glow-space);
-  width: 100%;
-  justify-content: center;
-  scroll-padding-inline: var(--chip-glow-space);
-  scrollbar-gutter: stable both-edges;
-  overflow: visible;
-  z-index: 1;
-}
-
-.players-strip::before,
-.players-strip::after {
-  content: '';
-  flex: 0 0 var(--chip-glow-space);
-}
-
-.player-chip {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0.6rem 0.9rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-elevated);
-  flex: 0 0 auto;
-  position: relative;
-  transition: border var(--transition-base), transform var(--transition-base), opacity var(--transition-base);
-}
-
-.player-chip[data-symbol="x"] {
-  border-color: rgba(33, 150, 243, 0.55);
-  background: rgba(33, 150, 243, 0.18);
-}
-.player-chip[data-symbol="o"] {
-  border-color: rgba(244, 67, 54, 0.55);
-  background: rgba(244, 67, 54, 0.18);
-}
-.player-chip[data-symbol="square"] {
-  border-color: rgba(156, 39, 176, 0.55);
-  background: rgba(156, 39, 176, 0.18);
-}
-.player-chip[data-symbol="star"] {
-  border-color: rgba(255, 152, 0, 0.55);
-  background: rgba(255, 152, 0, 0.18);
-}
-.player-chip[data-symbol="triangle"] {
-  border-color: rgba(76, 175, 80, 0.55);
-  background: rgba(76, 175, 80, 0.18);
-}
-.player-chip[data-symbol="diamond"] {
-  border-color: rgba(0, 188, 212, 0.55);
-  background: rgba(0, 188, 212, 0.18);
-}
-.player-chip[data-symbol="circle"] {
-  border-color: rgba(255, 235, 59, 0.6);
-  background: rgba(255, 235, 59, 0.25);
-  color: #1f2937;
-}
-.player-chip[data-symbol="plus"] {
-  border-color: rgba(233, 30, 99, 0.55);
-  background: rgba(233, 30, 99, 0.18);
-}
-.player-chip[data-symbol="heart"] {
-  border-color: rgba(255, 87, 34, 0.55);
-  background: rgba(255, 87, 34, 0.18);
-}
-.player-chip[data-symbol="pentagon"] {
-  border-color: rgba(121, 85, 72, 0.55);
-  background: rgba(121, 85, 72, 0.2);
-}
-
-.player-chip.active {
-  border-color: var(--neon-cyan);
-  background: rgba(0, 217, 255, 0.12);
-  box-shadow: 0 10px 24px rgba(0, 217, 255, 0.28);
-  animation: playerChipPulse 2s ease-in-out infinite;
-}
-
-/* AI Thinking State - gentle board-game feel pulse */
-.player-chip.ai-thinking {
-  border-color: rgba(139, 92, 246, 0.6);
-  background: rgba(139, 92, 246, 0.15);
-  animation: aiThinkingPulse 1.5s ease-in-out infinite;
-}
-
-@keyframes aiThinkingPulse {
-  0%, 100% {
-    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.25);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35);
-    transform: scale(1.02);
-  }
-}
-
-/* AI Thinking Bubble */
-.ai-thinking-bubble {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 10px;
-  background: rgba(139, 92, 246, 0.2);
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: #c4b5fd;
-  letter-spacing: 2px;
-  animation: thinkingBubblePulse 1s ease-in-out infinite;
-}
-
-@keyframes thinkingBubblePulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
-}
-
-.player-chip.winner {
-  border-color: rgba(34, 197, 94, 0.6);
-  background: rgba(34, 197, 94, 0.12);
-}
-
-.player-chip.is-me {
-  box-shadow: 0 0 0 2px var(--color-primary);
-}
-
-@keyframes playerChipPulse {
-  0%, 100% {
-    box-shadow: 0 10px 24px rgba(0, 217, 255, 0.28);
-  }
-  50% {
-    box-shadow: 0 14px 32px rgba(0, 217, 255, 0.38);
-  }
-}
-
-.player-symbol {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-}
-
-.player-name {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.turn-indicator {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.turn-indicator-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--color-success);
-  border-radius: 50%;
-  animation: pulse 1s infinite;
-}
-
-.timer-display {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
-.timer-display.warning {
-  color: var(--color-error);
-  animation: pulse 0.5s infinite;
-}
-
-.status-tag {
-  padding: var(--space-1) var(--space-2);
-  background: rgba(250, 204, 21, 0.2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: #fcd34d;
-}
-
-.you-tag {
-  padding: var(--space-1) var(--space-2);
-  background: rgba(99, 102, 241, 0.2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: #a5b4fc;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-/* Board Info */
-.board-info-row {
-  width: 100%;
-  max-width: 640px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-3);
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-}
-
-.your-turn-indicator {
-  color: var(--color-primary);
-  font-weight: 600;
-  animation: pulse 1s infinite;
-}
-
-/* Board Container */
-.board-container {
-  position: relative;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-/* Board Viewport - handles overflow/scrolling */
+/* Touch scrolling support */
 .board-viewport {
-  position: relative;
-  width: 100%;
-  max-width: 100%;
-  max-height: 70vh;
-  overflow: auto;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: var(--radius-lg);
-  /* Prevent default touch behaviors that interfere with custom gestures */
-  touch-action: none;
   -webkit-overflow-scrolling: touch;
-}
-
-/* Board Grid */
-.board {
-  display: grid;
-  gap: 8px;
-  background: var(--color-bg);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  border: none;
-  box-shadow:
-    inset 0 0 18px rgba(0, 217, 255, 0.12),
-    0 0 26px rgba(0, 217, 255, 0.26),
-    0 0 46px rgba(0, 217, 255, 0.2);
-  position: relative;
-  /* Transform origin for zoom/pan */
-  transform-origin: center center;
-  /* Prevent text selection during gestures */
-  user-select: none;
-  -webkit-user-select: none;
-  /* Smooth transform transitions */
-  transition: transform 0.1s ease-out;
 }
 
 /* Board panning state */
 .board.is-panning {
   cursor: grabbing;
-  transition: none; /* Disable transition during active pan for responsiveness */
+  transition: none;
 }
 
-/* Grid glow effect overlay */
+/* Grid glow effect overlay - requires pseudo-element */
 .board::before {
   content: '';
   position: absolute;
@@ -1097,20 +755,7 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   50% { opacity: 0.5; }
 }
 
-/* Cell Styles */
-.cell {
-  position: relative;
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: rgba(26, 29, 53, 0.6);
-  border: 2px solid rgba(0, 217, 255, 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: visible;
-  cursor: default;
-}
-
+/* Cell interactive states */
 .cell.clickable {
   cursor: pointer;
 }
@@ -1118,14 +763,20 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
 .cell.clickable:hover {
   border-color: var(--neon-cyan);
   background: rgba(0, 217, 255, 0.05);
-  box-shadow:
-    0 0 15px rgba(0, 217, 255, 0.3),
-    inset 0 0 15px rgba(0, 217, 255, 0.1);
+  box-shadow: 0 0 15px rgba(0, 217, 255, 0.3), inset 0 0 15px rgba(0, 217, 255, 0.1);
   transform: scale(1.05);
 }
 
 .cell.my-turn.clickable:hover {
   transform: scale(1.08);
+}
+
+/* Selected cell (touch) */
+.cell.cell-selected {
+  border-color: var(--neon-cyan);
+  background: rgba(0, 217, 255, 0.08);
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.4), inset 0 0 10px rgba(0, 217, 255, 0.1);
+  transform: scale(1.05);
 }
 
 /* Filled cell styles with neon glow per symbol */
@@ -1180,95 +831,11 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   box-shadow: var(--glow-pentagon);
 }
 
+/* Winning cell animation */
 .cell.winning {
   background: rgba(34, 197, 94, 0.15);
   border-color: var(--color-success);
   animation: winPulse 1s infinite;
-}
-
-/* ============================================================================
-   WIN_REVEAL Sequential Spotlight Animation
-   Cells flash one-by-one along the winning line, then hold all highlighted
-   ============================================================================ */
-
-.cell.win-reveal-spotlight {
-  /* Override regular winning animation */
-  animation: none;
-  /* Start with base winning state, spotlight animation will enhance */
-  background: rgba(34, 197, 94, 0.15);
-  border-color: var(--color-success);
-}
-
-/* Sequential spotlight with staggered delays (0-3 for 4 cells) */
-.cell.win-reveal-spotlight.spotlight-delay-0 {
-  animation: spotlightFlash 3s ease-out forwards;
-  animation-delay: 0ms;
-}
-.cell.win-reveal-spotlight.spotlight-delay-1 {
-  animation: spotlightFlash 3s ease-out forwards;
-  animation-delay: 300ms;
-}
-.cell.win-reveal-spotlight.spotlight-delay-2 {
-  animation: spotlightFlash 3s ease-out forwards;
-  animation-delay: 600ms;
-}
-.cell.win-reveal-spotlight.spotlight-delay-3 {
-  animation: spotlightFlash 3s ease-out forwards;
-  animation-delay: 900ms;
-}
-
-@keyframes spotlightFlash {
-  0% {
-    background: rgba(34, 197, 94, 0.15);
-    border-color: var(--color-success);
-    box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
-    transform: scale(1);
-  }
-  /* Flash in - dramatic highlight */
-  10% {
-    background: rgba(250, 204, 21, 0.4);
-    border-color: #fcd34d;
-    box-shadow: 0 0 40px rgba(250, 204, 21, 0.6), 0 0 60px rgba(250, 204, 21, 0.3);
-    transform: scale(1.12);
-  }
-  /* Settle back slightly but stay bright */
-  25% {
-    background: rgba(250, 204, 21, 0.25);
-    border-color: #fcd34d;
-    box-shadow: 0 0 25px rgba(250, 204, 21, 0.4);
-    transform: scale(1.05);
-  }
-  /* Hold highlighted state */
-  100% {
-    background: rgba(34, 197, 94, 0.25);
-    border-color: var(--color-success);
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4), 0 0 40px rgba(34, 197, 94, 0.2);
-    transform: scale(1.03);
-  }
-}
-
-.cell.pending {
-  background: rgba(99, 102, 241, 0.1);
-  border-style: dashed;
-}
-
-/* Only animate the cell that was just placed */
-.cell.just-placed {
-  animation: cellAppear 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) both;
-}
-
-@keyframes cellAppear {
-  0% {
-    transform: scale(0.3);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.15);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
 }
 
 @keyframes winPulse {
@@ -1276,30 +843,53 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   50% { box-shadow: 0 0 30px rgba(34, 197, 94, 0.5); }
 }
 
-/* ============================================================================
-   Blocked Cell Styles (Cant-Place Effects)
-   ============================================================================ */
+/* WIN_REVEAL Sequential Spotlight Animation */
+.cell.win-reveal-spotlight {
+  animation: none;
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--color-success);
+}
 
-/* Disabled cells - lower opacity */
+.cell.win-reveal-spotlight.spotlight-delay-0 { animation: spotlightFlash 3s ease-out forwards; animation-delay: 0ms; }
+.cell.win-reveal-spotlight.spotlight-delay-1 { animation: spotlightFlash 3s ease-out forwards; animation-delay: 300ms; }
+.cell.win-reveal-spotlight.spotlight-delay-2 { animation: spotlightFlash 3s ease-out forwards; animation-delay: 600ms; }
+.cell.win-reveal-spotlight.spotlight-delay-3 { animation: spotlightFlash 3s ease-out forwards; animation-delay: 900ms; }
+
+@keyframes spotlightFlash {
+  0% { background: rgba(34, 197, 94, 0.15); border-color: var(--color-success); box-shadow: 0 0 10px rgba(34, 197, 94, 0.2); transform: scale(1); }
+  10% { background: rgba(250, 204, 21, 0.4); border-color: #fcd34d; box-shadow: 0 0 40px rgba(250, 204, 21, 0.6), 0 0 60px rgba(250, 204, 21, 0.3); transform: scale(1.12); }
+  25% { background: rgba(250, 204, 21, 0.25); border-color: #fcd34d; box-shadow: 0 0 25px rgba(250, 204, 21, 0.4); transform: scale(1.05); }
+  100% { background: rgba(34, 197, 94, 0.25); border-color: var(--color-success); box-shadow: 0 0 20px rgba(34, 197, 94, 0.4), 0 0 40px rgba(34, 197, 94, 0.2); transform: scale(1.03); }
+}
+
+/* Pending cell */
+.cell.pending {
+  background: rgba(99, 102, 241, 0.1);
+  border-style: dashed;
+}
+
+/* Just placed animation */
+.cell.just-placed {
+  animation: cellAppear 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) both;
+}
+
+@keyframes cellAppear {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Blocked Cell Styles */
 .cell.disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Disabled cells with striped pattern */
 .cell.disabled-patterned {
   cursor: not-allowed;
-  background:
-    repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 5px,
-      rgba(71, 85, 105, 0.3) 5px,
-      rgba(71, 85, 105, 0.3) 10px
-    );
+  background: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(71, 85, 105, 0.3) 5px, rgba(71, 85, 105, 0.3) 10px);
 }
 
-/* Not playable cells (not adjacent to filled) - dimmed */
 .cell.not-playable {
   background: rgba(10, 15, 30, 0.65);
   opacity: 0.6;
@@ -1307,163 +897,50 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   border-color: rgba(71, 85, 105, 0.25);
 }
 
-/* Not playable cells with striped pattern */
 .cell.not-playable-patterned {
-  background:
-    repeating-linear-gradient(
-      45deg,
-      rgba(0, 0, 0, 0.3),
-      rgba(0, 0, 0, 0.3) 5px,
-      rgba(71, 85, 105, 0.3) 5px,
-      rgba(71, 85, 105, 0.3) 10px
-    );
+  background: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3) 5px, rgba(71, 85, 105, 0.3) 5px, rgba(71, 85, 105, 0.3) 10px);
   cursor: not-allowed;
   border-color: rgba(71, 85, 105, 0.25);
 }
 
-/* Prevent hover effects on blocked cells */
 .cell.not-playable:hover,
 .cell.not-playable-patterned:hover {
   transform: none;
   border-color: rgba(71, 85, 105, 0.25);
 }
 
-/* Warning indicator for blocked cells */
-.not-playable-indicator {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 3;
-  pointer-events: auto;
-  cursor: help;
-  padding: 3px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ============================================================================
-   Expansion Animations (Online Only)
-   Option A: Slide Out (default) - new rows/cols slide in from edges
-   Option B: Pop In - new tiles pop in with gentle settle
-   Option C: Stretch Settle - board stretches and settles
-   ============================================================================ */
-
-/* Base styles for new expansion cells */
+/* Expansion Animations */
 .cell.expansion-new {
   animation-delay: var(--expansion-delay, 0ms);
   animation-fill-mode: both;
 }
 
-/* --------------------------------------------------------------------------
-   Option A: Slide Out (Default)
-   New rows slide down/up, new columns slide left/right with fade
-   -------------------------------------------------------------------------- */
-.cell.expansion-mode-A_slideOut.expansion-top {
-  animation: slideFromTop 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.cell.expansion-mode-A_slideOut.expansion-bottom {
-  animation: slideFromBottom 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.cell.expansion-mode-A_slideOut.expansion-left {
-  animation: slideFromLeft 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.cell.expansion-mode-A_slideOut.expansion-right {
-  animation: slideFromRight 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
+.cell.expansion-mode-A_slideOut.expansion-top { animation: slideFromTop 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+.cell.expansion-mode-A_slideOut.expansion-bottom { animation: slideFromBottom 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+.cell.expansion-mode-A_slideOut.expansion-left { animation: slideFromLeft 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+.cell.expansion-mode-A_slideOut.expansion-right { animation: slideFromRight 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
 
-@keyframes slideFromTop {
-  0% {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
+@keyframes slideFromTop { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+@keyframes slideFromBottom { 0% { transform: translateY(100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+@keyframes slideFromLeft { 0% { transform: translateX(-100%); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+@keyframes slideFromRight { 0% { transform: translateX(100%); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
 
-@keyframes slideFromBottom {
-  0% {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes slideFromLeft {
-  0% {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  100% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes slideFromRight {
-  0% {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  100% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* --------------------------------------------------------------------------
-   Option B: Pop In Tiles
-   New tiles scale from 0.85 to 1.0 with gentle overshoot settle
-   -------------------------------------------------------------------------- */
-.cell.expansion-mode-B_popInTiles.expansion-new {
-  animation: popInTile 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
+.cell.expansion-mode-B_popInTiles.expansion-new { animation: popInTile 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
 @keyframes popInTile {
-  0% {
-    transform: scale(0.85);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.03);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0% { transform: scale(0.85); opacity: 0; }
+  60% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-/* --------------------------------------------------------------------------
-   Option C: Stretch + Settle
-   Cells fade in with subtle scale, board stretches via container animation
-   -------------------------------------------------------------------------- */
-.cell.expansion-mode-C_stretchSettle.expansion-new {
-  animation: stretchFadeIn 0.5s ease-out;
-}
+.cell.expansion-mode-C_stretchSettle.expansion-new { animation: stretchFadeIn 0.5s ease-out; }
 
 @keyframes stretchFadeIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
+  0% { opacity: 0; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
-/* Board stretch animation for Option C */
-.board:has(.expansion-mode-C_stretchSettle.expansion-new) {
-  animation: boardStretch 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
+.board:has(.expansion-mode-C_stretchSettle.expansion-new) { animation: boardStretch 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
 
 @keyframes boardStretch {
   0% { transform: scale(1); }
@@ -1471,15 +948,8 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   100% { transform: scale(1); }
 }
 
-.cell-icon {
-  display: grid;
-  place-items: center;
-  transition: transform 0.3s ease;
-}
-
+/* Pending indicator blink */
 .pending-indicator {
-  font-size: var(--text-xl);
-  color: var(--color-text-muted);
   animation: blink 1s infinite;
 }
 
@@ -1488,30 +958,13 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   50% { opacity: 0.3; }
 }
 
-/* Action Bar */
-.action-bar {
-  display: flex;
-  justify-content: center;
-  padding: var(--space-3);
+/* Timeout banner animation */
+.timeout-banner {
+  animation: timeoutPulse 2s ease-in-out;
 }
 
-.leave-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.leave-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: var(--color-error);
-  color: var(--color-error);
+@keyframes timeoutPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 </style>

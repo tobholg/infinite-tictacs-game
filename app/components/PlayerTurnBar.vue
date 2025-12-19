@@ -1,10 +1,10 @@
 <template>
-  <div class="player-turn-bar">
-    <div class="turn-segments">
+  <div class="player-turn-bar w-full flex flex-col items-center gap-2 py-2 px-3">
+    <div class="turn-segments flex w-full max-w-[320px] h-[10px] rounded-full overflow-hidden bg-surface border border-border gap-[2px]">
       <div
         v-for="(player, index) in players"
         :key="player.symbol"
-        class="turn-segment"
+        class="turn-segment flex-1 flex items-center justify-center opacity-35 transition-all duration-300 relative"
         :class="{
           active: currentPlayerIndex === index && !winner,
           winner: winner === player.symbol
@@ -19,18 +19,18 @@
           :is="getSymbolComponent(player.symbol)"
           :size="14"
           :stroke-width="3"
-          class="segment-icon"
+          class="segment-icon opacity-0 scale-50 transition-all duration-200 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.5)]"
         />
       </div>
     </div>
 
-    <div class="active-player-display">
+    <div class="active-player-display flex items-center gap-2">
       <div
-        class="active-indicator"
+        class="active-indicator w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] animate-[indicatorPulse_1.5s_ease-in-out_infinite]"
         :style="{ backgroundColor: currentPlayerColor }"
       ></div>
-      <span class="active-player-name">{{ displayText }}</span>
-      <div v-if="showTimer && timeLeft !== undefined" class="timer-compact" :class="{ warning: timeLeft <= 3 }">
+      <span class="active-player-name font-display text-base font-semibold text-text-primary">{{ displayText }}</span>
+      <div v-if="showTimer && timeLeft !== undefined" class="timer-compact py-[0.15rem] px-2 bg-[rgba(99,102,241,0.15)] border border-[rgba(99,102,241,0.3)] rounded-sm font-semibold text-sm text-text-secondary tabular-nums" :class="{ warning: timeLeft <= 3 }">
         {{ timeLeft.toFixed(1) }}s
       </div>
     </div>
@@ -111,37 +111,7 @@ const getSymbolComponent = (symbol: PlayerSymbol) => {
 </script>
 
 <style scoped>
-.player-turn-bar {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-}
-
-.turn-segments {
-  display: flex;
-  width: 100%;
-  max-width: 320px;
-  height: 10px;
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  gap: 2px;
-}
-
-.turn-segment {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.35;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
+/* Dynamic glow effects - must stay as CSS (uses runtime --glow-color variable) */
 .turn-segment.active {
   opacity: 1;
   box-shadow: 0 0 12px var(--glow-color), 0 0 20px var(--glow-color);
@@ -154,52 +124,13 @@ const getSymbolComponent = (symbol: PlayerSymbol) => {
   animation: winnerGlow 1s ease-in-out infinite;
 }
 
-.segment-icon {
-  opacity: 0;
-  transform: scale(0.5);
-  transition: all 0.2s ease;
-  color: white;
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
-}
-
 .turn-segment.active .segment-icon,
 .turn-segment.winner .segment-icon {
   opacity: 1;
   transform: scale(1);
 }
 
-.active-player-display {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.active-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  box-shadow: 0 0 8px currentColor;
-  animation: indicatorPulse 1.5s ease-in-out infinite;
-}
-
-.active-player-name {
-  font-family: var(--font-display);
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.timer-compact {
-  padding: 0.15rem 0.5rem;
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
+/* Timer warning state */
 .timer-compact.warning {
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.35);
@@ -207,6 +138,7 @@ const getSymbolComponent = (symbol: PlayerSymbol) => {
   animation: timerWarning 0.5s ease-in-out infinite;
 }
 
+/* Keyframe animations */
 @keyframes segmentPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }

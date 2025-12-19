@@ -11,7 +11,7 @@ const { isChristmasTheme } = useTheme()
 <template>
   <div
     v-if="isChristmasTheme"
-    class="holiday-bg"
+    class="holiday-bg fixed inset-0 z-0 pointer-events-none bg-cover bg-center bg-no-repeat blur-[0.5px] invisible"
     :class="{ 'holiday-bg--active': isVisible }"
     aria-hidden="true"
   ></div>
@@ -19,17 +19,7 @@ const { isChristmasTheme } = useTheme()
 
 <style scoped>
 .holiday-bg {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
   background-image: url('/img/bg_christmas.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  filter: blur(.5px);
-  /* Hidden by default - pre-rendered but invisible */
-  visibility: hidden;
 }
 
 .holiday-bg--active {

@@ -1,18 +1,18 @@
 <template>
-  <div class="character-picker">
-    <div class="picker-button" @click="toggleDropdown" :class="{ open: isOpen, disabled: disabled }">
-      <div class="selected-symbol">
+  <div class="character-picker relative">
+    <div class="picker-button flex items-center gap-2 py-2 px-3 bg-[rgba(30,30,45,0.6)] backdrop-blur-[10px] border-2 border-[rgba(99,102,241,0.4)] rounded-[10px] cursor-pointer transition-all duration-300 min-w-[80px] shadow-[0_2px_8px_rgba(0,0,0,0.2)]" @click="toggleDropdown" :class="{ open: isOpen, disabled: disabled }">
+      <div class="flex items-center justify-center flex-1">
         <component :is="getSymbolComponent(modelValue)" :size="28" :stroke-width="3" />
       </div>
-      <span class="picker-arrow" v-if="!disabled">▼</span>
+      <span class="picker-arrow text-[0.7rem] text-[rgba(167,139,250,0.9)] transition-transform duration-300" v-if="!disabled">▼</span>
     </div>
-    <div v-if="isOpen" class="picker-dropdown">
+    <div v-if="isOpen" class="picker-dropdown absolute top-[calc(100%+0.5rem)] left-0 min-w-[200px] bg-[rgba(25,25,40,0.85)] backdrop-blur-[20px] border-2 border-[rgba(99,102,241,0.4)] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.4),0_0_20px_rgba(99,102,241,0.2)] z-[100] p-2">
       <div v-for="symbol in availableSymbols" :key="symbol"
-           class="symbol-option"
+           class="symbol-option flex items-center gap-3 py-3 px-3 rounded-lg cursor-pointer transition-all duration-200"
            :class="{ selected: symbol === modelValue, disabled: !isSymbolAvailable(symbol) }"
            @click="selectSymbol(symbol)">
         <component :is="getSymbolComponent(symbol)" :size="24" :stroke-width="3" />
-        <span class="symbol-name">{{ symbol }}</span>
+        <span class="symbol-name text-[0.9rem] font-semibold text-[rgba(230,230,250,0.95)]">{{ symbol }}</span>
       </div>
     </div>
   </div>
@@ -95,25 +95,7 @@ if (typeof window !== 'undefined') {
 </script>
 
 <style scoped>
-.character-picker {
-  position: relative;
-}
-
-.picker-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: rgba(30, 30, 45, 0.6);
-  backdrop-filter: blur(10px);
-  border: 2px solid rgba(99, 102, 241, 0.4);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 80px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
+/* State classes for picker button */
 .picker-button:hover {
   border-color: rgba(99, 102, 241, 0.6);
   transform: translateY(-1px);
@@ -125,6 +107,10 @@ if (typeof window !== 'undefined') {
   border-color: rgba(99, 102, 241, 0.8);
   background: rgba(45, 45, 65, 0.8);
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.picker-button.open .picker-arrow {
+  transform: rotate(180deg);
 }
 
 .picker-button.disabled {
@@ -139,35 +125,8 @@ if (typeof window !== 'undefined') {
   border-color: rgba(138, 43, 226, 0.3);
 }
 
-.selected-symbol {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-}
-
-.picker-arrow {
-  font-size: 0.7rem;
-  color: rgba(167, 139, 250, 0.9);
-  transition: transform 0.3s ease;
-}
-
-.picker-button.open .picker-arrow {
-  transform: rotate(180deg);
-}
-
+/* Dropdown animation */
 .picker-dropdown {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  left: 0;
-  min-width: 200px;
-  background: rgba(25, 25, 40, 0.85);
-  backdrop-filter: blur(20px);
-  border: 2px solid rgba(99, 102, 241, 0.4);
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.2);
-  z-index: 100;
-  padding: 0.5rem;
   animation: dropdownSlide 0.2s ease;
 }
 
@@ -182,16 +141,7 @@ if (typeof window !== 'undefined') {
   }
 }
 
-.symbol-option {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
+/* Symbol option states */
 .symbol-option:hover:not(.disabled) {
   background: rgba(99, 102, 241, 0.15);
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
@@ -208,63 +158,55 @@ if (typeof window !== 'undefined') {
   cursor: not-allowed;
 }
 
-.symbol-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: rgba(230, 230, 250, 0.95);
-}
-
 .symbol-option.disabled .symbol-name {
   color: rgba(150, 150, 170, 0.6);
 }
 
 /* Light Mode Overrides */
-@media (prefers-color-scheme: light) {
-  .picker-button {
-    background: rgba(248, 250, 252, 0.9);
-    border: 2px solid rgba(99, 102, 241, 0.3);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  }
+:root.light .picker-button {
+  background: rgba(248, 250, 252, 0.9);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
 
-  .picker-button:hover {
-    border-color: rgba(99, 102, 241, 0.5);
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
-    background: rgba(241, 245, 249, 0.95);
-  }
+:root.light .picker-button:hover {
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+  background: rgba(241, 245, 249, 0.95);
+}
 
-  .picker-button.open {
-    border-color: rgba(99, 102, 241, 0.6);
-    background: rgba(237, 242, 247, 0.95);
-    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.25);
-  }
+:root.light .picker-button.open {
+  border-color: rgba(99, 102, 241, 0.6);
+  background: rgba(237, 242, 247, 0.95);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.25);
+}
 
-  .picker-arrow {
-    color: rgba(67, 56, 202, 0.8);
-  }
+:root.light .picker-arrow {
+  color: rgba(67, 56, 202, 0.8);
+}
 
-  .picker-dropdown {
-    background: rgba(255, 255, 255, 0.95);
-    border: 2px solid rgba(99, 102, 241, 0.3);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 20px rgba(99, 102, 241, 0.15);
-  }
+:root.light .picker-dropdown {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 20px rgba(99, 102, 241, 0.15);
+}
 
-  .symbol-option:hover:not(.disabled) {
-    background: rgba(99, 102, 241, 0.1);
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
-  }
+:root.light .symbol-option:hover:not(.disabled) {
+  background: rgba(99, 102, 241, 0.1);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
 
-  .symbol-option.selected {
-    background: rgba(99, 102, 241, 0.15);
-    border: 1px solid rgba(99, 102, 241, 0.4);
-    box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
-  }
+:root.light .symbol-option.selected {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
 
-  .symbol-name {
-    color: rgba(30, 41, 59, 0.95);
-  }
+:root.light .symbol-name {
+  color: rgba(30, 41, 59, 0.95);
+}
 
-  .symbol-option.disabled .symbol-name {
-    color: rgba(100, 116, 139, 0.5);
-  }
+:root.light .symbol-option.disabled .symbol-name {
+  color: rgba(100, 116, 139, 0.5);
 }
 </style>
