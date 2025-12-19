@@ -43,7 +43,7 @@ export interface MoveRecord {
 }
 export interface GameRules {
     winLength: number;
-    timeLimit?: number;
+    timeLimit?: number | null;
     maxPlayers: number;
     allowSpectators: boolean;
 }
@@ -96,7 +96,7 @@ export interface GameSettings {
     players: LocalPlayer[];
     gameMode: 'classic';
     rules: string[];
-    timeLimit?: number;
+    timeLimit?: number | null;
     cantPlaceEffects?: CantPlaceEffects;
 }
 export interface OnlineGameSettings {

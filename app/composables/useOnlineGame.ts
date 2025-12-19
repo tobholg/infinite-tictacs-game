@@ -453,6 +453,7 @@ export function useOnlineGame() {
         winLength: 4,
         maxPlayers: 20,
         allowSpectators,
+        timeLimit: null,
       },
     })
   }

@@ -18,7 +18,7 @@ export const PLAYER_SYMBOLS = [
 ];
 export const DEFAULT_GAME_RULES = {
     winLength: 4,
-    timeLimit: undefined,
+    timeLimit: null,
     maxPlayers: 20,
     allowSpectators: true,
 };

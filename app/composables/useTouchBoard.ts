@@ -3,6 +3,7 @@ import { ref, type Ref } from 'vue'
 export interface TouchBoardOptions {
   onPlaceRequest: (row: number, col: number) => void
   boardElement: Ref<HTMLElement | null>
+  boardViewport: Ref<HTMLElement | null>
   cellSize: Ref<number>
   getCellFromPoint?: (x: number, y: number) => { row: number; col: number } | null
 }
@@ -22,7 +23,7 @@ const DOUBLE_TAP_DELAY = 300 // ms
 const GAP_SIZE = 8 // CSS gap between cells
 
 export function useTouchBoard(options: TouchBoardOptions) {
-  const { onPlaceRequest, boardElement, cellSize, getCellFromPoint } = options
+  const { onPlaceRequest, boardElement, boardViewport, cellSize, getCellFromPoint } = options
 
   // State
   const zoomLevel = ref(1)
@@ -68,22 +69,26 @@ export function useTouchBoard(options: TouchBoardOptions) {
       return getCellFromPoint(screenX, screenY)
     }
 
-    if (!boardElement.value) return null
+    if (!boardElement.value || !boardViewport.value) return null
 
-    const rect = boardElement.value.getBoundingClientRect()
+    const rect = boardViewport.value.getBoundingClientRect()
+    const scrollLeft = boardViewport.value.scrollLeft || 0
+    const scrollTop = boardViewport.value.scrollTop || 0
 
-    // Account for zoom and pan
-    const scrollLeft = boardElement.value.scrollLeft || 0
-    const scrollTop = boardElement.value.scrollTop || 0
+    // Point in viewport space (accounting for scroll), then invert board transform
+    const point = new DOMPoint(
+      screenX - rect.left + scrollLeft,
+      screenY - rect.top + scrollTop
+    )
 
-    // Calculate position relative to board content
-    const relX = (screenX - rect.left + scrollLeft) / zoomLevel.value - panOffset.value.x / zoomLevel.value
-    const relY = (screenY - rect.top + scrollTop) / zoomLevel.value - panOffset.value.y / zoomLevel.value
+    const transform = getComputedStyle(boardElement.value).transform || 'matrix(1, 0, 0, 1, 0, 0)'
+    const matrix = new DOMMatrixReadOnly(transform)
+    const localPoint = point.matrixTransform(matrix.inverse())
 
     // Calculate cell indices (accounting for gap)
     const cellWithGap = cellSize.value + GAP_SIZE
-    const col = Math.floor(relX / cellWithGap)
-    const row = Math.floor(relY / cellWithGap)
+    const col = Math.floor(localPoint.x / cellWithGap)
+    const row = Math.floor(localPoint.y / cellWithGap)
 
     // Check if within valid bounds (will be validated by the game logic anyway)
     if (row < 0 || col < 0) return null

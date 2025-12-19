@@ -51,6 +51,7 @@ const {
 
 // Local UI state
 const boardElement = ref<HTMLElement | null>(null)
+const boardViewport = ref<HTMLElement | null>(null)
 const lastPlacedCell = ref<Position | null>(null)
 const viewportWidth = ref<number>(typeof window !== 'undefined' ? window.innerWidth : 1280)
 const viewportHeight = ref<number>(typeof window !== 'undefined' ? window.innerHeight : 720)
@@ -155,6 +156,37 @@ const revealWinningCells = computed(() => {
   }
   return winningCells.value
 })
+
+// Track recent moves for graduated visibility (last 31 moves for tiered brightness)
+const recentMovePositions = computed(() => {
+  const moves = gameState.value?.moveHistory?.slice(0, 31) || []
+  const map = new Map<string, number>()
+  moves.forEach((move, index) => {
+    // Store using logical coordinates for stable tracking across board expansion
+    const logicalRow = boardOffset.value.row + move.row
+    const logicalCol = boardOffset.value.col + move.col
+    const key = `${logicalRow},${logicalCol}`
+    map.set(key, index) // 0 = newest, up to 30
+  })
+  return map
+})
+
+// Get recency tier for a cell based on move index ranges
+// Tier 0: index 0 (newest), Tier 1: 1-3, Tier 2: 4-9, Tier 3: 10-17, Tier 4: 18-30, null: older
+function getRecencyLevel(row: number, col: number): number | null {
+  const logicalRow = boardOffset.value.row + row
+  const logicalCol = boardOffset.value.col + col
+  const key = `${logicalRow},${logicalCol}`
+  const index = recentMovePositions.value.get(key)
+
+  if (index === undefined) return null
+  if (index === 0) return 0           // Newest move: 130%
+  if (index <= 3) return 1            // Moves 1-3: 115%
+  if (index <= 9) return 2            // Moves 4-9: 100%
+  if (index <= 17) return 3           // Moves 10-17: 85%
+  if (index <= 30) return 4           // Moves 18-30: 70%
+  return null                         // Older: 55% + 80% opacity
+}
 
 const timerWarning = computed(() => {
   if (!turnTimeRemaining.value) return false
@@ -297,25 +329,25 @@ function handleCellClick(row: number, col: number) {
 // Scroll to center of board
 async function scrollToCenter() {
   await nextTick()
-  if (!boardElement.value) return
+  if (!boardElement.value || !boardViewport.value) return
 
-  const scrollLeft = (boardElement.value.scrollWidth - boardElement.value.clientWidth) / 2
-  const scrollTop = (boardElement.value.scrollHeight - boardElement.value.clientHeight) / 2
-  boardElement.value.scrollTo({ left: scrollLeft, top: scrollTop })
+  const scrollLeft = (boardElement.value.scrollWidth - boardViewport.value.clientWidth) / 2
+  const scrollTop = (boardElement.value.scrollHeight - boardViewport.value.clientHeight) / 2
+  boardViewport.value.scrollTo({ left: scrollLeft, top: scrollTop })
 }
 
 // Auto-scroll to a cell
 async function scrollToCell(row: number, col: number) {
   await nextTick()
-  if (!boardElement.value) return
+  if (!boardElement.value || !boardViewport.value) return
 
   const piecePixelX = col * (cellSize.value + 8)
   const piecePixelY = row * (cellSize.value + 8)
 
-  const centerX = piecePixelX - (boardElement.value.clientWidth / 2) + (cellSize.value / 2)
-  const centerY = piecePixelY - (boardElement.value.clientHeight / 2) + (cellSize.value / 2)
+  const centerX = piecePixelX - (boardViewport.value.clientWidth / 2) + (cellSize.value / 2)
+  const centerY = piecePixelY - (boardViewport.value.clientHeight / 2) + (cellSize.value / 2)
 
-  boardElement.value.scrollTo({
+  boardViewport.value.scrollTo({
     left: Math.max(0, centerX),
     top: Math.max(0, centerY),
     behavior: 'smooth'
@@ -334,14 +366,21 @@ const {
   handleTouchEnd,
   isSelectedCell,
   clearSelection,
-  getBoardTransform
+  getBoardTransform,
+  resetView
 } = useTouchBoard({
   onPlaceRequest: (row: number, col: number) => {
     handleCellClickFromTouch(row, col)
   },
   boardElement,
+  boardViewport,
   cellSize
 })
+
+function handleResetView() {
+  resetView()
+  scrollToCenter()
+}
 
 // Separate handler for touch-initiated clicks (bypasses synthetic click check)
 function handleCellClickFromTouch(row: number, col: number) {
@@ -477,10 +516,10 @@ onMounted(async () => {
 
   // Setup touch event listeners with passive: false to allow preventDefault
   // This is required for proper pinch-zoom handling on mobile
-  if (boardElement.value) {
-    boardElement.value.addEventListener('touchstart', touchStartHandler, { passive: false })
-    boardElement.value.addEventListener('touchmove', touchMoveHandler, { passive: false })
-    boardElement.value.addEventListener('touchend', touchEndHandler, { passive: true })
+  if (boardViewport.value) {
+    boardViewport.value.addEventListener('touchstart', touchStartHandler, { passive: false })
+    boardViewport.value.addEventListener('touchmove', touchMoveHandler, { passive: false })
+    boardViewport.value.addEventListener('touchend', touchEndHandler, { passive: true })
   }
 
   // Scroll to center
@@ -493,10 +532,10 @@ onUnmounted(() => {
   }
 
   // Remove touch event listeners
-  if (boardElement.value) {
-    boardElement.value.removeEventListener('touchstart', touchStartHandler)
-    boardElement.value.removeEventListener('touchmove', touchMoveHandler)
-    boardElement.value.removeEventListener('touchend', touchEndHandler)
+  if (boardViewport.value) {
+    boardViewport.value.removeEventListener('touchstart', touchStartHandler)
+    boardViewport.value.removeEventListener('touchmove', touchMoveHandler)
+    boardViewport.value.removeEventListener('touchend', touchEndHandler)
   }
 
   // Clear expansion animation timer
@@ -655,6 +694,10 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
       <span>Board: {{ boardSize.rows }} × {{ boardSize.cols }}</span>
       <span>Win: {{ winLength }} in a row</span>
       <span v-if="isMyTurn && !isGameOver && !isSpectator" class="text-primary font-semibold animate-pulse">Your Turn!</span>
+      <button class="ml-auto inline-flex items-center gap-1 px-3 py-1 bg-surface border border-border rounded-md text-[11px] text-text-secondary hover:text-text-primary hover:border-accent transition-colors" @click="handleResetView">
+        <RefreshIcon :size="14" />
+        Reset view
+      </button>
     </div>
 
     <!-- Game Board -->
@@ -663,7 +706,7 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
            then transitions to OnlineResults.vue for winner display and actions -->
 
       <!-- Board Viewport - handles overflow/scrolling -->
-      <div class="board-viewport relative w-full max-w-full max-h-[70vh] overflow-auto flex justify-center items-center rounded-lg touch-none">
+      <div ref="boardViewport" class="board-viewport relative w-full max-w-full max-h-[70vh] overflow-auto flex justify-center items-center rounded-lg touch-none">
         <!-- Board Grid - handles transforms (zoom/pan) -->
         <div
           ref="boardElement"
@@ -687,6 +730,7 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
             :class="getCellClasses(rowIndex, colIndex, cell)"
             :style="{ '--expansion-delay': getExpansionAnimationDelay(rowIndex, colIndex) }"
             :data-symbol="cell ? cell.toLowerCase() : undefined"
+            :data-recency="getRecencyLevel(rowIndex, colIndex)"
             :disabled="!canClickCell(rowIndex, colIndex)"
             @click="handleCellClick(rowIndex, colIndex)"
             :initial="{ opacity: 1, scale: 1 }"
@@ -829,6 +873,38 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   background: rgba(205, 220, 57, 0.1);
   border-color: var(--neon-lime);
   box-shadow: var(--glow-pentagon);
+}
+
+/* Recency-based brightness - newest moves are brightest */
+/* Tier 0: newest move */
+.cell.filled[data-recency="0"] {
+  filter: brightness(1.3);
+}
+
+/* Tier 1: moves 1-3 */
+.cell.filled[data-recency="1"] {
+  filter: brightness(1.15);
+}
+
+/* Tier 2: moves 4-9 */
+.cell.filled[data-recency="2"] {
+  filter: brightness(1.0);
+}
+
+/* Tier 3: moves 10-17 */
+.cell.filled[data-recency="3"] {
+  filter: brightness(0.85);
+}
+
+/* Tier 4: moves 18-30 */
+.cell.filled[data-recency="4"] {
+  filter: brightness(0.7);
+}
+
+/* All older filled cells (31+) - default dimmer */
+.cell.filled:not([data-recency]) {
+  filter: brightness(0.55);
+  opacity: 0.8;
 }
 
 /* Winning cell animation */

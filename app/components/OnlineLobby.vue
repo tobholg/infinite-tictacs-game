@@ -82,7 +82,7 @@ interface GamePreset {
   icon: string
   description: string
   winLength: number
-  timeLimit?: number
+  timeLimit?: number | null
 }
 
 const gamePresets: GamePreset[] = [
@@ -92,6 +92,7 @@ const gamePresets: GamePreset[] = [
     icon: '🎯',
     description: 'Pure strategy with unlimited time and infinite expansion.',
     winLength: 4,
+    timeLimit: null,
   },
   {
     id: 'speed-classic',
@@ -148,16 +149,19 @@ function applyGameMode() {
 
   playSound('buttonClick')
 
+  // Always send an explicit timeLimit (null clears any previous speed setting)
+  const timeLimit = preset.timeLimit ?? null
+
   // Set pending update to track what we're requesting
   isUpdatingRules.value = true
   pendingRulesUpdate.value = {
     winLength: preset.winLength,
-    timeLimit: preset.timeLimit,
+    timeLimit,
   }
 
   updateRules({
     winLength: preset.winLength,
-    timeLimit: preset.timeLimit,
+    timeLimit,
   })
 
   // appliedPresetId will be updated by the watcher when server confirms
@@ -225,6 +229,8 @@ watch(countdownSeconds, (seconds) => {
   }
 })
 
+const normalizeTimeLimit = (value: number | null | undefined) => value ?? null
+
 // Watch for rules changes to confirm pending updates
 // This resolves the race condition between rule updates and game start
 watch(
@@ -235,7 +241,7 @@ watch(
     // Check if server confirmed our pending update
     if (
       newRules.winLength === pendingRulesUpdate.value.winLength &&
-      newRules.timeLimit === pendingRulesUpdate.value.timeLimit
+      normalizeTimeLimit(newRules.timeLimit) === normalizeTimeLimit(pendingRulesUpdate.value.timeLimit)
     ) {
       // Server confirmed - update local state
       appliedPresetId.value = selectedPresetId.value

@@ -90,14 +90,14 @@ export interface MoveRecord {
 
 export interface GameRules {
   winLength: number // Default: 4
-  timeLimit?: number // Seconds per turn (undefined = no limit)
+  timeLimit?: number | null // Seconds per turn (null/undefined = no limit)
   maxPlayers: number // Default: 20
   allowSpectators: boolean
 }
 
 export const DEFAULT_GAME_RULES: GameRules = {
   winLength: 4,
-  timeLimit: undefined,
+  timeLimit: null,
   maxPlayers: 20,
   allowSpectators: true,
 }
@@ -189,7 +189,7 @@ export interface GameSettings {
   players: LocalPlayer[]
   gameMode: 'classic'
   rules: string[]
-  timeLimit?: number
+  timeLimit?: number | null
   cantPlaceEffects?: CantPlaceEffects
 }
 
