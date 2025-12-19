@@ -18,7 +18,7 @@ import type {
   PlayerSymbol,
   Position,
   DEFAULT_GAME_RULES,
-} from '../types'
+} from '../types/index.js'
 
 // -----------------------------------------------------------------------------
 // State Creation

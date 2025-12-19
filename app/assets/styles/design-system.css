@@ -113,7 +113,7 @@
   --color-bg: #F5F7FA;
   --color-bg-muted: #E8EBF0;
   --color-surface: #FFFFFF;
-  --color-surface-elevated: #FAFBFC;
+  --color-surface-elevated: #F3F4F6;  /* More distinct gray for better button visibility */
   --color-surface-highlight: #F0F3F7;
   --color-border: #D1D5DB;
   --color-border-glow: rgba(0, 180, 230, 0.4);
@@ -282,15 +282,15 @@ body::before {
       0deg,
       transparent,
       transparent 100px,
-      rgba(0, 217, 255, 0.02) 100px,
-      rgba(0, 217, 255, 0.02) 101px
+      rgba(0, 217, 255, 0.024) 100px,
+      rgba(0, 217, 255, 0.024) 101px
     ),
     repeating-linear-gradient(
       90deg,
       transparent,
       transparent 100px,
-      rgba(0, 217, 255, 0.02) 100px,
-      rgba(0, 217, 255, 0.02) 101px
+      rgba(0, 217, 255, 0.024) 100px,
+      rgba(0, 217, 255, 0.024) 101px
     );
   pointer-events: none;
   z-index: 0;
@@ -810,107 +810,125 @@ button:disabled {
 }
 
 /* ================================
-   CHRISTMAS THEME - LIGHT MODE
+   CHRISTMAS THEME - FORCE DARK MODE
+   Light mode is disabled for Christmas theme
    ================================ */
+
+/* Override light mode when Christmas theme is active - force dark mode colors */
 :root.light[data-theme="christmas"] {
-  /* Christmas red accent for light mode */
-  --color-accent: #DC2626;
-  --color-accent-soft: rgba(220, 38, 38, 0.12);
-  --color-accent-strong: #B91C1C;
-  --color-accent-glow: rgba(220, 38, 38, 0.35);
+  color-scheme: dark;
 
-  /* Christmas green secondary */
-  --color-secondary: #166534;
-  --color-secondary-soft: rgba(22, 101, 52, 0.12);
-  --color-secondary-glow: rgba(22, 101, 52, 0.35);
+  /* Force dark Christmas colors even in light mode */
+  --color-accent: #c41e3a;
+  --color-accent-soft: rgba(196, 30, 58, 0.15);
+  --color-accent-strong: #a01830;
+  --color-accent-glow: rgba(196, 30, 58, 0.5);
 
-  /* Gold warning */
-  --color-warning: #CA8A04;
-  --color-warning-soft: rgba(202, 138, 4, 0.12);
+  --color-secondary: #2d5a27;
+  --color-secondary-soft: rgba(45, 90, 39, 0.15);
+  --color-secondary-glow: rgba(45, 90, 39, 0.5);
 
-  /* Light Christmas background */
-  --color-bg: #FEF7F7;
-  --color-bg-muted: #FDF2F2;
-  --color-surface: #FFFFFF;
-  --color-surface-elevated: #FFFAFA;
-  --color-surface-highlight: #FEF2F2;
-  --color-border: #FECACA;
-  --color-border-glow: rgba(220, 38, 38, 0.4);
-  --color-divider: #FEE2E2;
+  --color-warning: #d4af37;
+  --color-warning-soft: rgba(212, 175, 55, 0.15);
 
-  /* Light Christmas neon colors */
-  --neon-cyan: #DC2626;
-  --neon-cyan-bright: #EF4444;
-  --neon-purple: #15803D;
-  --neon-purple-bright: #22C55E;
-  --neon-pink: #CA8A04;
-  --neon-pink-bright: #EAB308;
-  --neon-green: #166534;
-  --neon-green-bright: #22C55E;
-  --neon-orange: #EA580C;
-  --neon-orange-bright: #F97316;
+  /* Force dark Christmas background */
+  --color-bg: #120810;
+  --color-bg-muted: #1E0F15;
+  --color-surface: #2A1518;
+  --color-surface-elevated: #351A1E;
+  --color-surface-highlight: #402025;
+  --color-border: #4a2828;
+  --color-border-glow: rgba(196, 30, 58, 0.5);
+  --color-divider: #2D1A1D;
 
-  /* Light Christmas symbol glows (softer) */
-  --glow-x: 0 0 10px rgba(220, 38, 38, 0.35), 0 0 20px rgba(220, 38, 38, 0.2);
-  --glow-o: 0 0 10px rgba(22, 101, 52, 0.35), 0 0 20px rgba(22, 101, 52, 0.2);
-  --glow-square: 0 0 10px rgba(202, 138, 4, 0.35), 0 0 20px rgba(202, 138, 4, 0.2);
-  --glow-star: 0 0 10px rgba(234, 88, 12, 0.35), 0 0 20px rgba(234, 88, 12, 0.2);
-  --glow-triangle: 0 0 10px rgba(22, 101, 52, 0.35), 0 0 20px rgba(22, 101, 52, 0.2);
-  --glow-diamond: 0 0 10px rgba(220, 38, 38, 0.35), 0 0 20px rgba(220, 38, 38, 0.2);
+  /* Force dark text colors */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #B8C5D9;
+  --color-text-tertiary: #8B95A5;
+
+  /* Force dark neon colors */
+  --neon-cyan: #ff6b6b;
+  --neon-cyan-bright: #ff8585;
+  --neon-purple: #4ecdc4;
+  --neon-purple-bright: #6ee0d8;
+  --neon-pink: #ffe66d;
+  --neon-pink-bright: #ffed8a;
+  --neon-green: #98d89e;
+  --neon-green-bright: #b0e8b5;
+  --neon-orange: #ff9f43;
+  --neon-orange-bright: #ffb366;
+
+  /* Force dark glows */
+  --glow-x: 0 0 15px #ff6b6b, 0 0 30px #ff6b6b, 0 0 45px rgba(255, 107, 107, 0.5);
+  --glow-o: 0 0 15px #4ecdc4, 0 0 30px #4ecdc4, 0 0 45px rgba(78, 205, 196, 0.5);
+  --glow-square: 0 0 15px #ffe66d, 0 0 30px #ffe66d, 0 0 45px rgba(255, 230, 109, 0.5);
+  --glow-star: 0 0 15px #ff9f43, 0 0 30px #ff9f43, 0 0 45px rgba(255, 159, 67, 0.5);
+  --glow-triangle: 0 0 15px #98d89e, 0 0 30px #98d89e, 0 0 45px rgba(152, 216, 158, 0.5);
+  --glow-diamond: 0 0 15px #c41e3a, 0 0 30px #c41e3a, 0 0 45px rgba(196, 30, 58, 0.5);
+
+  /* Force dark shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
-/* Light Christmas body background */
+/* Force dark background for Christmas theme even in light mode */
 :root.light[data-theme="christmas"] body {
   background:
-    radial-gradient(ellipse at 20% 80%, rgba(220, 38, 38, 0.06), transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(22, 101, 52, 0.06), transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(202, 138, 4, 0.04), transparent 40%),
+    var(--christmas-ambient-gradient),
+    radial-gradient(ellipse at 20% 80%, rgba(196, 30, 58, 0.18), transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(45, 90, 39, 0.15), transparent 50%),
+    radial-gradient(ellipse at 0% 50%, rgba(45, 90, 39, 0.12), transparent 40%),
+    radial-gradient(ellipse at 100% 50%, rgba(196, 30, 58, 0.12), transparent 40%),
+    radial-gradient(ellipse at 50% 50%, rgba(212, 175, 55, 0.08), transparent 60%),
     var(--color-bg);
 }
 
-/* Light Christmas grid overlay */
+/* Force dark grid for Christmas theme in light mode */
 :root.light[data-theme="christmas"] body::before {
   background-image:
     repeating-linear-gradient(
       0deg,
       transparent,
       transparent 100px,
-      rgba(220, 38, 38, 0.02) 100px,
-      rgba(220, 38, 38, 0.02) 101px
+      rgba(196, 30, 58, 0.02) 100px,
+      rgba(196, 30, 58, 0.02) 101px
     ),
     repeating-linear-gradient(
       90deg,
       transparent,
       transparent 100px,
-      rgba(22, 101, 52, 0.02) 100px,
-      rgba(22, 101, 52, 0.02) 101px
+      rgba(45, 90, 39, 0.02) 100px,
+      rgba(45, 90, 39, 0.02) 101px
     );
 }
 
-/* Light Christmas heading glow */
+/* Force dark heading glow for Christmas theme in light mode */
 :root.light[data-theme="christmas"] .heading-display {
   text-shadow:
-    0 0 8px rgba(220, 38, 38, 0.3),
-    0 0 16px rgba(220, 38, 38, 0.15);
+    0 0 10px #c41e3a,
+    0 0 20px #c41e3a,
+    0 0 30px #c41e3a,
+    0 0 40px rgba(196, 30, 58, 0.5);
 }
 
-/* Light Christmas primary button */
+/* Force dark button for Christmas theme in light mode */
 :root.light[data-theme="christmas"] .btn-primary {
-  background: linear-gradient(135deg, #DC2626, #166534);
-  border-color: #DC2626;
+  background: linear-gradient(135deg, #c41e3a, #2d5a27);
+  border-color: #c41e3a;
   box-shadow:
     var(--shadow-md),
-    0 0 15px rgba(220, 38, 38, 0.25),
-    0 0 30px rgba(220, 38, 38, 0.1);
+    0 0 20px rgba(196, 30, 58, 0.4),
+    0 0 40px rgba(196, 30, 58, 0.2);
 }
 
 :root.light[data-theme="christmas"] .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #EF4444, #22C55E);
-  border-color: #EF4444;
+  background: linear-gradient(135deg, #e63946, #3d7a37);
+  border-color: #e63946;
   box-shadow:
     var(--shadow-lg),
-    0 0 20px rgba(220, 38, 38, 0.35),
-    0 0 40px rgba(22, 101, 52, 0.2);
+    0 0 30px rgba(196, 30, 58, 0.6),
+    0 0 60px rgba(45, 90, 39, 0.4);
 }
 
 /* ============================================

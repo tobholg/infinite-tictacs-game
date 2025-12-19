@@ -10,7 +10,7 @@ import type {
   Position,
   RoomPhase,
   RoomState,
-} from './index'
+} from './index.js'
 
 // -----------------------------------------------------------------------------
 // Client → Server Events
@@ -30,9 +30,14 @@ export interface ClientToServerEvents {
   'host:update_rules': (data: UpdateRulesPayload) => void
   'host:add_ai': (data: AddAIPayload) => void
   'host:remove_ai': (data: RemoveAIPayload) => void
+  'host:toggle_spectate': (data: ToggleHostSpectatePayload) => void
+  'host:return_to_lobby': (data: ReturnToLobbyPayload) => void
 
   // Gameplay
   'player:submit_move': (data: SubmitMovePayload) => void
+
+  // Player Name
+  'player:set_name': (data: SetPlayerNamePayload) => void
 }
 
 // -----------------------------------------------------------------------------
@@ -61,6 +66,10 @@ export interface ServerToClientEvents {
 
   // Connection Events
   'connection:restored': (data: ConnectionRestoredPayload) => void
+
+  // Player Name Events
+  'player:name_set': (data: PlayerNameSetPayload) => void
+  'player:name_error': (data: PlayerNameErrorPayload) => void
 }
 
 // -----------------------------------------------------------------------------
@@ -69,9 +78,10 @@ export interface ServerToClientEvents {
 
 export interface CreateRoomPayload {
   hostName: string
-  rules: GameRules
+  hostSpectating: boolean // true = host starts as spectator
   allowSpectators: boolean
   maxPlayers: number
+  rules: GameRules
 }
 
 export interface JoinRoomPayload {
@@ -130,6 +140,22 @@ export interface RemoveAIPayload {
   aiPlayerId: string
 }
 
+export interface ToggleHostSpectatePayload {
+  roomCode: string
+  becomeSpectator: boolean // true = host wants to spectate, false = host wants to play
+}
+
+export interface ReturnToLobbyPayload {
+  roomCode: string
+}
+
+export interface SetPlayerNamePayload {
+  roomCode: string
+  playerId: string
+  name: string
+  asSpectator: boolean // Final choice: player or spectator
+}
+
 // -----------------------------------------------------------------------------
 // Server → Client Payload Types
 // -----------------------------------------------------------------------------
@@ -165,6 +191,21 @@ export type RoomErrorCode =
   | 'RECONNECT_FAILED'
   | 'RATE_LIMITED'
   | 'INTERNAL_ERROR'
+  | 'DUPLICATE_NAME'
+  | 'PLAYER_NOT_FOUND'
+  | 'SPECTATORS_NOT_ALLOWED'
+
+export interface PlayerNameSetPayload {
+  success: true
+  playerId: string
+  name: string
+  isSpectator: boolean
+}
+
+export interface PlayerNameErrorPayload {
+  code: 'DUPLICATE_NAME' | 'INVALID_NAME' | 'PLAYER_NOT_FOUND'
+  message: string
+}
 
 export interface LobbyUpdatedPayload {
   players: Player[]

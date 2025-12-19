@@ -259,8 +259,14 @@ function isPendingCell(row: number, col: number): boolean {
   return pendingMove.value?.row === row && pendingMove.value?.col === col
 }
 
-// Handle cell click
+// Handle cell click (from mouse or keyboard, not touch)
 function handleCellClick(row: number, col: number) {
+  // Ignore synthetic click events that fire after touch on mobile
+  // These occur ~300ms after touch events and would bypass double-tap logic
+  if (Date.now() - lastTouchTime.value < 500) {
+    return
+  }
+
   if (!canClickCell(row, col)) {
     // Play invalid move sound if clicking a blocked cell
     if (board.value[row]?.[col] === '' && !isAdjacentToFilledCell(row, col)) {
@@ -322,6 +328,7 @@ const {
   panOffset,
   selectedCell,
   isPanning,
+  lastTouchTime,
   handleTouchStart,
   handleTouchMove,
   handleTouchEnd,
@@ -330,11 +337,32 @@ const {
   getBoardTransform
 } = useTouchBoard({
   onPlaceRequest: (row: number, col: number) => {
-    handleCellClick(row, col)
+    handleCellClickFromTouch(row, col)
   },
   boardElement,
   cellSize
 })
+
+// Separate handler for touch-initiated clicks (bypasses synthetic click check)
+function handleCellClickFromTouch(row: number, col: number) {
+  if (!canClickCell(row, col)) {
+    if (board.value[row]?.[col] === '' && !isAdjacentToFilledCell(row, col)) {
+      playSound('invalidMove')
+    }
+    return
+  }
+
+  clearSelection()
+  playSound('piecePlaced')
+
+  lastPlacedCell.value = {
+    row: boardOffset.value.row + row,
+    col: boardOffset.value.col + col
+  }
+
+  submitMove(row, col)
+  scrollToCell(row, col)
+}
 
 // Player chip animation
 function getPlayerChipAnimation(playerSymbol: PlayerSymbol, playerIndex: number) {
@@ -434,12 +462,25 @@ function handleLeave() {
   emit('backToMenu')
 }
 
+// Touch event handlers for non-passive listeners
+const touchMoveHandler = (e: TouchEvent) => handleTouchMove(e)
+const touchStartHandler = (e: TouchEvent) => handleTouchStart(e)
+const touchEndHandler = (e: TouchEvent) => handleTouchEnd(e)
+
 // Auto-scroll to center on mount and setup resize listener
 onMounted(async () => {
   // Setup viewport resize listener
   if (typeof window !== 'undefined') {
     updateViewportSize()
     window.addEventListener('resize', updateViewportSize, { passive: true })
+  }
+
+  // Setup touch event listeners with passive: false to allow preventDefault
+  // This is required for proper pinch-zoom handling on mobile
+  if (boardElement.value) {
+    boardElement.value.addEventListener('touchstart', touchStartHandler, { passive: false })
+    boardElement.value.addEventListener('touchmove', touchMoveHandler, { passive: false })
+    boardElement.value.addEventListener('touchend', touchEndHandler, { passive: true })
   }
 
   // Scroll to center
@@ -450,6 +491,14 @@ onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateViewportSize)
   }
+
+  // Remove touch event listeners
+  if (boardElement.value) {
+    boardElement.value.removeEventListener('touchstart', touchStartHandler)
+    boardElement.value.removeEventListener('touchmove', touchMoveHandler)
+    boardElement.value.removeEventListener('touchend', touchEndHandler)
+  }
+
   // Clear expansion animation timer
   if (expansionAnimationTimer.value) {
     clearTimeout(expansionAnimationTimer.value)
@@ -613,22 +662,21 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
       <!-- NOTE: Results overlay removed - WIN_REVEAL phase shows winning animation,
            then transitions to OnlineResults.vue for winner display and actions -->
 
-      <!-- Board Grid -->
-      <div
-        ref="boardElement"
-        class="board"
-        :class="{ 'is-panning': isPanning }"
-        :style="{
-          '--cell-size': `${cellSize}px`,
-          '--grid-cols': boardSize.cols,
-          gridTemplateColumns: `repeat(${boardSize.cols}, ${cellSize}px)`,
-          gridTemplateRows: `repeat(${boardSize.rows}, ${cellSize}px)`,
-          ...getBoardTransform()
-        }"
-        @touchstart="handleTouchStart"
-        @touchmove="handleTouchMove"
-        @touchend="handleTouchEnd"
-      >
+      <!-- Board Viewport - handles overflow/scrolling -->
+      <div class="board-viewport">
+        <!-- Board Grid - handles transforms (zoom/pan) -->
+        <div
+          ref="boardElement"
+          class="board"
+          :class="{ 'is-panning': isPanning }"
+          :style="{
+            '--cell-size': `${cellSize}px`,
+            '--grid-cols': boardSize.cols,
+            gridTemplateColumns: `repeat(${boardSize.cols}, ${cellSize}px)`,
+            gridTemplateRows: `repeat(${boardSize.rows}, ${cellSize}px)`,
+            ...getBoardTransform()
+          }"
+        >
         <template v-for="(row, rowIndex) in board" :key="`row-${boardOffset.row + rowIndex}`">
           <Motion
             v-for="(cell, colIndex) in row"
@@ -658,6 +706,7 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
             <span v-else-if="isPendingCell(rowIndex, colIndex)" class="pending-indicator">...</span>
           </Motion>
         </template>
+      </div>
       </div>
     </div>
 
@@ -982,6 +1031,22 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
   justify-content: center;
 }
 
+/* Board Viewport - handles overflow/scrolling */
+.board-viewport {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  max-height: 70vh;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: var(--radius-lg);
+  /* Prevent default touch behaviors that interfere with custom gestures */
+  touch-action: none;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Board Grid */
 .board {
   display: grid;
@@ -994,9 +1059,20 @@ watch(() => gameState.value?.moveHistory?.[0], (latestMove) => {
     inset 0 0 18px rgba(0, 217, 255, 0.12),
     0 0 26px rgba(0, 217, 255, 0.26),
     0 0 46px rgba(0, 217, 255, 0.2);
-  overflow: auto;
-  max-height: 70vh;
   position: relative;
+  /* Transform origin for zoom/pan */
+  transform-origin: center center;
+  /* Prevent text selection during gestures */
+  user-select: none;
+  -webkit-user-select: none;
+  /* Smooth transform transitions */
+  transition: transform 0.1s ease-out;
+}
+
+/* Board panning state */
+.board.is-panning {
+  cursor: grabbing;
+  transition: none; /* Disable transition during active pan for responsiveness */
 }
 
 /* Grid glow effect overlay */

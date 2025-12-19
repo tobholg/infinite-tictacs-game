@@ -31,6 +31,9 @@ export function useTouchBoard(options: TouchBoardOptions) {
   const isPanning = ref(false)
   const isPinching = ref(false)
 
+  // Track last touch time to prevent synthetic click events on mobile
+  const lastTouchTime = ref<number>(0)
+
   // Internal tracking
   const touchStartPos = ref<{ x: number; y: number } | null>(null)
   const initialPinchDistance = ref<number>(0)
@@ -140,9 +143,25 @@ export function useTouchBoard(options: TouchBoardOptions) {
         // Movement exceeds threshold - this is a pan
         hasMoved.value = true
         isPanning.value = true
+
+        // Calculate pan bounds based on board dimensions and zoom level
+        let maxPanX = 0
+        let maxPanY = 0
+        if (boardElement.value) {
+          const boardWidth = boardElement.value.scrollWidth * zoomLevel.value
+          const boardHeight = boardElement.value.scrollHeight * zoomLevel.value
+          const viewportWidth = boardElement.value.clientWidth
+          const viewportHeight = boardElement.value.clientHeight
+
+          // Allow panning up to half the board size in each direction
+          maxPanX = Math.max(0, (boardWidth - viewportWidth) / 2 + 100)
+          maxPanY = Math.max(0, (boardHeight - viewportHeight) / 2 + 100)
+        }
+
+        // Apply pan with bounds clamping
         panOffset.value = {
-          x: initialPanOffset.value.x + dx,
-          y: initialPanOffset.value.y + dy
+          x: clamp(initialPanOffset.value.x + dx, -maxPanX, maxPanX),
+          y: clamp(initialPanOffset.value.y + dy, -maxPanY, maxPanY)
         }
       }
     }
@@ -150,6 +169,9 @@ export function useTouchBoard(options: TouchBoardOptions) {
 
   // Touch End Handler
   const handleTouchEnd = (event: TouchEvent) => {
+    // Track touch time to prevent synthetic click events on mobile
+    lastTouchTime.value = Date.now()
+
     if (isPinching.value) {
       // End pinch - check if any fingers remain
       if (event.touches.length < 2) {
@@ -251,6 +273,7 @@ export function useTouchBoard(options: TouchBoardOptions) {
     selectedCell,
     isPanning,
     isPinching,
+    lastTouchTime,
 
     // Event handlers
     handleTouchStart,

@@ -33,6 +33,7 @@ const {
   roomPhase,
   startGame,
   leaveRoom,
+  returnToLobby,
 } = useOnlineGame()
 
 // Sound effects
@@ -101,6 +102,11 @@ function handlePlayAgain() {
   if (isStartingNextRound.value) return // Prevent double clicks
   isStartingNextRound.value = true
   startGame()
+}
+
+function handleBackToLobby() {
+  playSound('buttonClick')
+  returnToLobby()
 }
 
 function handleLeave() {
@@ -187,6 +193,9 @@ function handleLeave() {
       <p v-else class="waiting-text">
         Waiting for host to start next round...
       </p>
+      <button v-if="isHost" class="tertiary-btn" @click="handleBackToLobby">
+        Back to Lobby
+      </button>
       <button class="secondary-btn" @click="handleLeave">
         Leave Game
       </button>
@@ -451,6 +460,24 @@ function handleLeave() {
 .secondary-btn:hover {
   background: var(--color-surface-elevated);
   color: var(--color-text-primary);
+}
+
+.tertiary-btn {
+  width: 100%;
+  padding: var(--space-3) var(--space-5);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-base);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tertiary-btn:hover {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .waiting-text {

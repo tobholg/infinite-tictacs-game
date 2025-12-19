@@ -30,7 +30,7 @@ import CircleIcon from './icons/CircleIcon.vue'
 import PlusIcon from './icons/PlusIcon.vue'
 import HeartIcon from './icons/HeartIcon.vue'
 import PentagonIcon from './icons/PentagonIcon.vue'
-import type { PlayerSymbol } from './StartMenu.vue'
+import type { PlayerSymbol } from '../../shared/types'
 
 interface Props {
   modelValue: PlayerSymbol

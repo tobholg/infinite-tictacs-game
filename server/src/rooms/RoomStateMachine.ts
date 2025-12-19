@@ -9,7 +9,7 @@ const VALID_TRANSITIONS: Record<RoomPhase, RoomPhase[]> = {
   LOBBY: ['COUNTDOWN'],
   COUNTDOWN: ['ROUND_ACTIVE', 'LOBBY'], // Can cancel countdown
   ROUND_ACTIVE: ['ROUND_RESULTS'],
-  ROUND_RESULTS: ['COUNTDOWN', 'COMPLETED'],
+  ROUND_RESULTS: ['COUNTDOWN', 'COMPLETED', 'LOBBY'], // Can return to lobby
   COMPLETED: ['LOBBY'], // New game
 }
 

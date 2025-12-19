@@ -40,8 +40,12 @@ const {
   canStartGame,
   countdownSeconds,
   isInCountdown,
+  isHostSpectating,
+  canHostRejoin,
   error,
   isLoading,
+  needsNameSetup,
+  nameSetupError,
   initialize,
   createRoom,
   joinRoom,
@@ -49,6 +53,10 @@ const {
   startGame,
   addAI,
   removeAI,
+  toggleHostSpectate,
+  updateRules,
+  setPlayerName,
+  dismissNameSetup,
 } = useOnlineGame()
 
 // Sound effects
@@ -62,6 +70,107 @@ const prevPlayerCount = ref(0)
 const aiName = ref('')
 const aiDifficulty = ref<AIDifficulty>('medium')
 const showAIForm = ref(false)
+
+// Name setup form state
+const nameInput = ref('')
+const spectatorChoice = ref(false)
+
+// Game mode presets (moved from StartMenu to Lobby)
+interface GamePreset {
+  id: string
+  name: string
+  icon: string
+  description: string
+  winLength: number
+  timeLimit?: number
+}
+
+const gamePresets: GamePreset[] = [
+  {
+    id: 'classic',
+    name: 'Classic',
+    icon: '🎯',
+    description: 'Pure strategy with unlimited time and infinite expansion.',
+    winLength: 4,
+  },
+  {
+    id: 'speed-classic',
+    name: 'Speed Classic',
+    icon: '⚡',
+    description: 'Fast-paced classic. 5 seconds per move keeps the pressure on.',
+    winLength: 4,
+    timeLimit: 5,
+  },
+]
+
+// Game mode selection state (host only)
+const selectedPresetId = ref('classic')
+const appliedPresetId = ref('classic')
+const hasUnappliedChanges = computed(() => selectedPresetId.value !== appliedPresetId.value)
+
+// Track pending rule updates to prevent race conditions
+const isUpdatingRules = ref(false)
+const pendingRulesUpdate = ref<{ winLength: number; timeLimit: number | null } | null>(null)
+
+// Get current game mode from rules (for non-hosts)
+const currentGameMode = computed(() => {
+  if (!rules.value) return { name: 'Classic', icon: '🎯', description: 'Unlimited time' }
+
+  // Match rules to a preset
+  const preset = gamePresets.find(p =>
+    p.winLength === rules.value?.winLength &&
+    p.timeLimit === rules.value?.timeLimit
+  )
+
+  if (preset) {
+    return { name: preset.name, icon: preset.icon, description: preset.description }
+  }
+
+  // Custom rules
+  const timeLimitText = rules.value.timeLimit
+    ? `${rules.value.timeLimit}s per turn`
+    : 'Unlimited time'
+  return {
+    name: 'Custom',
+    icon: '⚙️',
+    description: `${rules.value.winLength} in a row, ${timeLimitText}`
+  }
+})
+
+function selectGamePreset(presetId: string) {
+  playSound('buttonClick')
+  selectedPresetId.value = presetId
+}
+
+function applyGameMode() {
+  const preset = gamePresets.find(p => p.id === selectedPresetId.value)
+  if (!preset || isUpdatingRules.value) return
+
+  playSound('buttonClick')
+
+  // Set pending update to track what we're requesting
+  isUpdatingRules.value = true
+  pendingRulesUpdate.value = {
+    winLength: preset.winLength,
+    timeLimit: preset.timeLimit,
+  }
+
+  updateRules({
+    winLength: preset.winLength,
+    timeLimit: preset.timeLimit,
+  })
+
+  // appliedPresetId will be updated by the watcher when server confirms
+  // Add timeout fallback in case server doesn't respond
+  setTimeout(() => {
+    if (isUpdatingRules.value) {
+      // Fallback: assume update succeeded after timeout
+      appliedPresetId.value = selectedPresetId.value
+      isUpdatingRules.value = false
+      pendingRulesUpdate.value = null
+    }
+  }, 3000)
+}
 
 // Symbol component mapping
 const symbolComponents: Record<string, any> = {
@@ -115,6 +224,27 @@ watch(countdownSeconds, (seconds) => {
     playSound('countdown')
   }
 })
+
+// Watch for rules changes to confirm pending updates
+// This resolves the race condition between rule updates and game start
+watch(
+  () => rules.value,
+  (newRules) => {
+    if (!isUpdatingRules.value || !pendingRulesUpdate.value || !newRules) return
+
+    // Check if server confirmed our pending update
+    if (
+      newRules.winLength === pendingRulesUpdate.value.winLength &&
+      newRules.timeLimit === pendingRulesUpdate.value.timeLimit
+    ) {
+      // Server confirmed - update local state
+      appliedPresetId.value = selectedPresetId.value
+      isUpdatingRules.value = false
+      pendingRulesUpdate.value = null
+    }
+  },
+  { deep: true }
+)
 
 // Actions
 function handleBackToMainMenu() {
@@ -173,6 +303,18 @@ function getDifficultyLabel(difficulty: AIDifficulty): string {
     case 'hard': return 'Hard'
     default: return 'Medium'
   }
+}
+
+function handleConfirmName() {
+  if (nameInput.value.trim()) {
+    playSound('buttonClick')
+    setPlayerName(nameInput.value.trim(), spectatorChoice.value)
+  }
+}
+
+function handleSkipNameSetup() {
+  playSound('buttonClick')
+  dismissNameSetup()
 }
 </script>
 
@@ -265,9 +407,11 @@ function getDifficultyLabel(difficulty: AIDifficulty): string {
               <component :is="getPlayerSymbolComponent(player.symbol)" />
             </div>
             <div class="player-info">
-              <span class="player-name">{{ player.name }}</span>
+              <span class="player-name">
+                {{ player.name }}
+                <span v-if="player.id === hostId" class="host-tag">(Host)</span>
+              </span>
               <div class="player-badges">
-                <span v-if="player.id === hostId" class="badge host-badge">Host</span>
                 <span v-if="player.id === playerId" class="badge me-badge">You</span>
                 <span v-if="player.isAI" class="badge ai-badge">
                   AI ({{ getDifficultyLabel(player.aiDifficulty || 'medium') }})
@@ -291,6 +435,51 @@ function getDifficultyLabel(difficulty: AIDifficulty): string {
               <span class="empty-icon">⏳</span>
               <span class="empty-text">Waiting for players to join...</span>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Game Mode (Host Only - can edit) -->
+      <section v-if="isHost" class="config-section game-mode-section">
+        <div class="section-header">
+          <h3 class="section-title">Game Mode</h3>
+        </div>
+        <div class="game-mode-grid">
+          <button
+            v-for="preset in gamePresets"
+            :key="preset.id"
+            type="button"
+            class="preset-btn"
+            :class="{ selected: selectedPresetId === preset.id, applied: appliedPresetId === preset.id }"
+            @click="selectGamePreset(preset.id)"
+          >
+            <span class="preset-icon">{{ preset.icon }}</span>
+            <span class="preset-name">{{ preset.name }}</span>
+            <span class="preset-desc">{{ preset.description }}</span>
+            <span v-if="preset.timeLimit" class="preset-tag">{{ preset.timeLimit }}s turns</span>
+          </button>
+        </div>
+        <div v-if="hasUnappliedChanges" class="apply-row">
+          <button class="btn btn-apply" @click="applyGameMode">
+            Apply Settings
+          </button>
+          <span class="apply-hint">Changes not yet applied to room</span>
+        </div>
+        <p v-else class="mode-hint">
+          {{ appliedPresetId === 'speed-classic' ? 'Speed mode active: 5 seconds per turn' : 'Classic mode: unlimited time per turn' }}
+        </p>
+      </section>
+
+      <!-- Game Mode Display (Non-host - read only) -->
+      <section v-else class="config-section game-mode-display">
+        <div class="section-header">
+          <h3 class="section-title">Game Mode</h3>
+        </div>
+        <div class="mode-info">
+          <span class="mode-icon">{{ currentGameMode.icon }}</span>
+          <div class="mode-details">
+            <span class="mode-name">{{ currentGameMode.name }}</span>
+            <span class="mode-description">{{ currentGameMode.description }}</span>
           </div>
         </div>
       </section>
@@ -370,10 +559,10 @@ function getDifficultyLabel(difficulty: AIDifficulty): string {
         <button
           v-if="isHost"
           class="btn btn-primary btn-start"
-          :disabled="!canStartGame"
+          :disabled="!canStartGame || isUpdatingRules"
           @click="handleStartGame"
         >
-          {{ activePlayers.length < 2 ? 'Waiting for players...' : '🎮 Start Game' }}
+          {{ isUpdatingRules ? 'Syncing...' : activePlayers.length < 2 ? 'Waiting for players...' : '🎮 Start Game' }}
         </button>
 
         <div v-else class="waiting-message">
@@ -382,6 +571,61 @@ function getDifficultyLabel(difficulty: AIDifficulty): string {
         </div>
       </div>
     </Motion>
+
+    <!-- Name Setup Popup -->
+    <Transition name="fade">
+      <div v-if="needsNameSetup" class="name-setup-overlay">
+        <Motion
+          :initial="{ opacity: 0, scale: 0.95, y: 20 }"
+          :animate="{ opacity: 1, scale: 1, y: 0 }"
+          :transition="{ duration: 0.3, easing: livelySpringEasing }"
+          class="name-setup-popup"
+        >
+          <h3 class="popup-title">Welcome! Pick Your Name</h3>
+          <p class="popup-hint">Choose a unique name for this room</p>
+
+          <div class="popup-form">
+            <div class="form-field">
+              <label for="name-input" class="form-label">Your Name</label>
+              <input
+                id="name-input"
+                v-model="nameInput"
+                type="text"
+                placeholder="Enter your name"
+                maxlength="20"
+                class="form-input"
+                @keyup.enter="handleConfirmName"
+              />
+            </div>
+
+            <label class="spectator-option">
+              <input type="checkbox" v-model="spectatorChoice" class="spectator-check" />
+              <span class="option-text">Join as spectator (watch only)</span>
+            </label>
+
+            <!-- Error display -->
+            <div v-if="nameSetupError" class="name-error">
+              {{ nameSetupError }}
+            </div>
+
+            <div class="popup-actions">
+              <button class="btn btn-ghost" @click="handleSkipNameSetup">
+                Skip
+              </button>
+              <button
+                class="btn btn-primary"
+                :disabled="!nameInput.trim()"
+                @click="handleConfirmName"
+              >
+                {{ spectatorChoice ? 'Join as Spectator' : 'Confirm' }}
+              </button>
+            </div>
+          </div>
+
+          <p class="popup-footer">Or skip to keep your current name ({{ myPlayer?.name || 'Player' }})</p>
+        </Motion>
+      </div>
+    </Transition>
 
     <!-- Countdown Overlay -->
     <Transition name="countdown-fade">
@@ -517,10 +761,20 @@ function getDifficultyLabel(difficulty: AIDifficulty): string {
 
 /* Config Sections - matching StartMenu style */
 .config-section {
-  background: var(--color-surface);
+  background: rgba(26, 29, 53, 0.7);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
+}
+
+/* Light mode: white background with 70% opacity */
+:root.light .config-section {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* Christmas theme (both dark and light): use dark Christmas colors */
+:root[data-theme="christmas"] .config-section {
+  background: rgba(42, 21, 24, 0.7);
 }
 
 /* Room Code Section */
@@ -722,6 +976,12 @@ function getDifficultyLabel(difficulty: AIDifficulty): string {
   text-overflow: ellipsis;
 }
 
+.host-tag {
+  font-weight: 400;
+  color: #fcd34d;
+  margin-left: var(--space-1);
+}
+
 .player-badges {
   display: flex;
   flex-wrap: wrap;
@@ -735,11 +995,6 @@ function getDifficultyLabel(difficulty: AIDifficulty): string {
   font-weight: 600;
   border-radius: var(--radius-sm);
   text-transform: uppercase;
-}
-
-.host-badge {
-  background: rgba(250, 204, 21, 0.2);
-  color: #fcd34d;
 }
 
 .me-badge {
@@ -1034,6 +1289,295 @@ function getDifficultyLabel(difficulty: AIDifficulty): string {
 .countdown-fade-enter-from,
 .countdown-fade-leave-to {
   opacity: 0;
+}
+
+/* Name Setup Popup */
+.name-setup-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 900;
+  padding: var(--space-4);
+}
+
+.name-setup-popup {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+}
+
+.popup-title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.popup-hint {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.popup-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-align: left;
+}
+
+.form-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.form-input {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-muted);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--text-base);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.form-input:focus {
+  border-color: var(--color-accent);
+}
+
+.form-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.spectator-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  padding: var(--space-2);
+  margin: var(--space-1) 0;
+}
+
+.spectator-check {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.option-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.name-error {
+  padding: var(--space-3);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  color: #fca5a5;
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.popup-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.popup-actions .btn {
+  flex: 1;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+}
+
+.popup-footer {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* Fade transition for name popup */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Game Mode Section */
+.game-mode-section {
+  padding: var(--space-3) var(--space-4);
+}
+
+.game-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--color-bg-muted);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.preset-btn:hover {
+  border-color: var(--color-accent);
+  background: var(--color-surface-elevated);
+  transform: translateY(-2px);
+}
+
+.preset-btn.selected {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.preset-btn.applied {
+  border-width: 3px;
+}
+
+.preset-icon {
+  font-size: 2rem;
+}
+
+.preset-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.preset-desc {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.preset-tag {
+  margin-top: var(--space-1);
+  padding: 2px 8px;
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+}
+
+.apply-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  background: rgba(250, 204, 21, 0.1);
+  border: 1px dashed rgba(250, 204, 21, 0.3);
+  border-radius: var(--radius-md);
+}
+
+.btn-apply {
+  padding: var(--space-2) var(--space-4);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-md);
+  color: white;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-apply:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.apply-hint {
+  font-size: var(--text-xs);
+  color: var(--color-warning);
+}
+
+.mode-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Game Mode Display (non-host) */
+.game-mode-display {
+  padding: var(--space-3) var(--space-4);
+}
+
+.mode-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-bg-muted);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.mode-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.mode-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mode-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.mode-description {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 /* Responsive */

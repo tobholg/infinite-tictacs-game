@@ -17,6 +17,10 @@ import type {
   SubmitMovePayload,
   AddAIPayload,
   RemoveAIPayload,
+  ToggleHostSpectatePayload,
+  UpdateRulesPayload,
+  SetPlayerNamePayload,
+  ReturnToLobbyPayload,
 } from '../../../shared/types/events.js'
 
 import type { GameState, Player } from '../../../shared/types/index.js'
@@ -211,8 +215,24 @@ export function setupSocketHandlers(io: TypedServer, roomStore: RoomStore): void
       handleRemoveAI(io, socket, roomStore, data)
     })
 
+    socket.on('host:toggle_spectate', (data: ToggleHostSpectatePayload) => {
+      handleToggleHostSpectate(io, socket, roomStore, data)
+    })
+
+    socket.on('host:update_rules', (data: UpdateRulesPayload) => {
+      handleUpdateRules(io, socket, roomStore, data)
+    })
+
+    socket.on('host:return_to_lobby', (data: ReturnToLobbyPayload) => {
+      handleReturnToLobby(io, socket, roomStore, data)
+    })
+
     socket.on('player:submit_move', (data: SubmitMovePayload) => {
       handleSubmitMove(io, socket, roomStore, data)
+    })
+
+    socket.on('player:set_name', (data: SetPlayerNamePayload) => {
+      handleSetPlayerName(io, socket, roomStore, data)
     })
 
     // ---------------------------------------------------------------------------
@@ -241,7 +261,7 @@ function handleCreateRoom(
     return
   }
 
-  const { hostName, rules, allowSpectators, maxPlayers } = data
+  const { hostName, hostSpectating, allowSpectators, maxPlayers, rules } = data
 
   // Validate input
   if (!hostName || hostName.trim().length === 0) {
@@ -249,12 +269,17 @@ function handleCreateRoom(
     return
   }
 
-  // Create the room
-  const result = roomStore.createRoom(socket.id, hostName.trim(), {
-    ...rules,
-    maxPlayers,
-    allowSpectators,
-  })
+  // Create the room with hostSpectating setting
+  const result = roomStore.createRoom(
+    socket.id,
+    hostName.trim(),
+    {
+      ...rules,
+      maxPlayers,
+      allowSpectators,
+    },
+    hostSpectating
+  )
 
   // Join the socket room
   socket.join(result.room.code)
@@ -274,7 +299,7 @@ function handleCreateRoom(
     roomSnapshot: result.room,
   })
 
-  console.log(`Room ${result.room.code} created by ${hostName}`)
+  console.log(`Room ${result.room.code} created by ${hostName}${hostSpectating ? ' (spectating)' : ''}`)
 }
 
 function handleJoinRoom(
@@ -297,19 +322,17 @@ function handleJoinRoom(
     return
   }
 
-  // Validate input
-  if (!name || name.trim().length === 0) {
-    socket.emit('room:error', { code: 'INVALID_NAME', message: 'Name is required' })
-    return
-  }
-
+  // Validate room code (name is now optional - will use placeholder)
   if (!roomCode || roomCode.trim().length === 0) {
     socket.emit('room:error', { code: 'INVALID_ROOM_CODE', message: 'Room code is required' })
     return
   }
 
+  // Use placeholder if name is empty (will generate "Player N" on server)
+  const playerName = name?.trim() || '__PLACEHOLDER__'
+
   // Try to add player (or spectator)
-  const result = roomStore.addPlayer(roomCode.toUpperCase(), name.trim(), socket.id, asSpectator || false)
+  const result = roomStore.addPlayer(roomCode.toUpperCase(), playerName, socket.id, asSpectator || false)
 
   if (!result.success) {
     socket.emit('room:error', {
@@ -344,7 +367,8 @@ function handleJoinRoom(
   })
 
   const joinType = asSpectator ? 'spectator' : 'player'
-  console.log(`${name} joined room ${roomCode} as ${joinType}`)
+  const displayName = result.player.name
+  console.log(`${displayName} joined room ${roomCode} as ${joinType}`)
 }
 
 function handleLeaveRoom(
@@ -519,6 +543,182 @@ function handleRemoveAI(
   }
 
   console.log(`AI player ${aiPlayerId} removed from room ${roomCode}`)
+}
+
+function handleSetPlayerName(
+  io: TypedServer,
+  socket: TypedSocket,
+  roomStore: RoomStore,
+  data: SetPlayerNamePayload
+): void {
+  // Rate limit check
+  if (!actionRateLimiter.isAllowed(socket.id)) {
+    emitRateLimitError(socket, 'action')
+    return
+  }
+
+  const { roomCode, playerId, name, asSpectator } = data
+
+  // Verify the socket is setting name for their own player
+  if (socket.data.playerId !== playerId) {
+    socket.emit('player:name_error', {
+      code: 'PLAYER_NOT_FOUND',
+      message: 'You can only set your own name.',
+    })
+    return
+  }
+
+  const result = roomStore.setPlayerName(roomCode, playerId, name, asSpectator)
+
+  if (!result.success) {
+    socket.emit('player:name_error', {
+      code: result.error as 'DUPLICATE_NAME' | 'INVALID_NAME' | 'PLAYER_NOT_FOUND',
+      message: getErrorMessage(result.error),
+    })
+    return
+  }
+
+  // Send success to the player
+  socket.emit('player:name_set', {
+    success: true,
+    playerId: result.player.id,
+    name: result.player.name,
+    isSpectator: result.player.isSpectator || false,
+  })
+
+  // Broadcast lobby update to all in room
+  io.to(roomCode.toUpperCase()).emit('lobby:updated', {
+    players: result.room.players,
+    hostId: result.room.hostId,
+    rules: result.room.rules,
+    phase: result.room.phase,
+  })
+
+  console.log(`Player ${playerId} set name to "${result.player.name}" in room ${roomCode}`)
+}
+
+function handleToggleHostSpectate(
+  io: TypedServer,
+  socket: TypedSocket,
+  roomStore: RoomStore,
+  data: ToggleHostSpectatePayload
+): void {
+  // Rate limit check
+  if (!actionRateLimiter.isAllowed(socket.id)) {
+    emitRateLimitError(socket, 'action')
+    return
+  }
+
+  const { roomCode, becomeSpectator } = data
+
+  // Verify host
+  if (!roomStore.isHost(roomCode, socket.data.playerId)) {
+    socket.emit('room:error', { code: 'NOT_HOST', message: 'Only the host can toggle spectator mode' })
+    return
+  }
+
+  const result = roomStore.toggleHostSpectate(roomCode, socket.data.playerId, becomeSpectator)
+
+  if (!result.success) {
+    socket.emit('room:error', {
+      code: result.error as any,
+      message: getErrorMessage(result.error),
+    })
+    return
+  }
+
+  // Broadcast lobby update
+  io.to(roomCode.toUpperCase()).emit('lobby:updated', {
+    players: result.room.players,
+    hostId: result.room.hostId,
+    rules: result.room.rules,
+    phase: result.room.phase,
+  })
+
+  const action = becomeSpectator ? 'spectating' : 'playing'
+  console.log(`Host in room ${roomCode} is now ${action}`)
+}
+
+function handleUpdateRules(
+  io: TypedServer,
+  socket: TypedSocket,
+  roomStore: RoomStore,
+  data: UpdateRulesPayload
+): void {
+  // Rate limit check
+  if (!actionRateLimiter.isAllowed(socket.id)) {
+    emitRateLimitError(socket, 'action')
+    return
+  }
+
+  const { roomCode, rules: rulesUpdate } = data
+
+  // Verify host
+  if (!roomStore.isHost(roomCode, socket.data.playerId)) {
+    socket.emit('room:error', { code: 'NOT_HOST', message: 'Only the host can update rules' })
+    return
+  }
+
+  const result = roomStore.updateRules(roomCode, rulesUpdate)
+
+  if (!result.success) {
+    socket.emit('room:error', {
+      code: result.error as any,
+      message: getErrorMessage(result.error),
+    })
+    return
+  }
+
+  // Broadcast lobby update
+  io.to(roomCode.toUpperCase()).emit('lobby:updated', {
+    players: result.room.players,
+    hostId: result.room.hostId,
+    rules: result.room.rules,
+    phase: result.room.phase,
+  })
+
+  console.log(`Rules updated in room ${roomCode}`)
+}
+
+function handleReturnToLobby(
+  io: TypedServer,
+  socket: TypedSocket,
+  roomStore: RoomStore,
+  data: ReturnToLobbyPayload
+): void {
+  // Rate limit check
+  if (!actionRateLimiter.isAllowed(socket.id)) {
+    emitRateLimitError(socket, 'action')
+    return
+  }
+
+  const { roomCode } = data
+
+  // Verify host
+  if (!roomStore.isHost(roomCode, socket.data.playerId)) {
+    socket.emit('room:error', { code: 'NOT_HOST', message: 'Only the host can return to lobby' })
+    return
+  }
+
+  const result = roomStore.returnToLobby(roomCode)
+
+  if (!result.success) {
+    socket.emit('room:error', {
+      code: result.error as any,
+      message: getErrorMessage(result.error),
+    })
+    return
+  }
+
+  // Broadcast lobby update to all in room
+  io.to(roomCode.toUpperCase()).emit('lobby:updated', {
+    players: result.room.players,
+    hostId: result.room.hostId,
+    rules: result.room.rules,
+    phase: result.room.phase,
+  })
+
+  console.log(`Room ${roomCode} returned to lobby`)
 }
 
 function handleStartRound(
@@ -919,6 +1119,7 @@ function getErrorMessage(error: string): string {
     NOT_HOST: 'Only the host can perform this action.',
     INVALID_TOKEN: 'Reconnection failed. Invalid token.',
     PLAYER_NOT_FOUND: 'Player not found in room.',
+    DUPLICATE_NAME: 'That name is already taken. Please choose a different name.',
   }
 
   return messages[error] || 'An error occurred.'

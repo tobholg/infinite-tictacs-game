@@ -49,7 +49,7 @@ import CircleIcon from './icons/CircleIcon.vue'
 import PlusIcon from './icons/PlusIcon.vue'
 import HeartIcon from './icons/HeartIcon.vue'
 import PentagonIcon from './icons/PentagonIcon.vue'
-import type { Player, PlayerSymbol } from './StartMenu.vue'
+import type { Player, PlayerSymbol } from '../../shared/types'
 
 const PLAYER_COLOR_MAP: Record<string, string> = {
   X: '#2196F3',      // Blue

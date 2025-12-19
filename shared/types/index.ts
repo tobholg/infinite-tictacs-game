@@ -58,6 +58,7 @@ export interface Player {
   teamId?: number
   connected?: boolean
   isSpectator?: boolean
+  hasSetName?: boolean // Track if player confirmed their name (false = using placeholder)
 }
 
 // Local player type (used in StartMenu, doesn't have id)

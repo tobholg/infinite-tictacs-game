@@ -29,6 +29,8 @@ import type {
   HostTransferredPayload,
   RoomErrorPayload,
   ConnectionRestoredPayload,
+  PlayerNameSetPayload,
+  PlayerNameErrorPayload,
 } from '../../shared/types/events'
 
 // Local storage keys
@@ -91,6 +93,10 @@ const WIN_REVEAL_DURATION = 4000 // 4 seconds (within 3-5s spec)
 const error = ref<string | null>(null)
 const isLoading = ref(false)
 const pendingMove = ref<{ row: number; col: number } | null>(null)
+
+// Name setup state (for players who joined with placeholder names)
+const needsNameSetup = ref(false)
+const nameSetupError = ref<string | null>(null)
 
 // Initialization guard - prevents duplicate listener setup
 let isInitialized = false
@@ -163,6 +169,23 @@ export function useOnlineGame() {
     return isGameActive.value && isCurrentPlayerAI.value && !isGameOver.value
   })
 
+  // Check if the host is currently spectating
+  const isHostSpectating = computed(() => {
+    if (!hostId.value) return false
+    const hostPlayer = players.value.find((p) => p.id === hostId.value)
+    return hostPlayer?.isSpectator === true
+  })
+
+  // Check if host can rejoin as a player
+  const canHostRejoin = computed(() => {
+    if (!isHost.value || !isHostSpectating.value) return false
+    // Can only rejoin during lobby phase
+    if (roomPhase.value !== 'LOBBY') return false
+    // Check if room is not full
+    const maxPlayers = rules.value?.maxPlayers || 20
+    return activePlayers.value.length < maxPlayers
+  })
+
   // Time remaining for current turn
   const turnTimeRemaining = computed(() => {
     if (!turnDeadlineMs.value) return null
@@ -188,6 +211,8 @@ export function useOnlineGame() {
     on('round:results', handleRoundResults)
     on('scoreboard:updated', handleScoreboardUpdated)
     on('connection:restored', handleConnectionRestored)
+    on('player:name_set', handlePlayerNameSet)
+    on('player:name_error', handlePlayerNameError)
   }
 
   function removeEventListeners(): void {
@@ -204,6 +229,8 @@ export function useOnlineGame() {
     off('round:results')
     off('scoreboard:updated')
     off('connection:restored')
+    off('player:name_set')
+    off('player:name_error')
   }
 
   function handleRoomCreated(data: RoomCreatedPayload): void {
@@ -236,6 +263,13 @@ export function useOnlineGame() {
     gameState.value = data.roomSnapshot.gameState
     isLoading.value = false
     error.value = null
+
+    // Check if player needs to set their name (joined with placeholder)
+    const myPlayerData = data.roomSnapshot.players.find((p) => p.id === data.yourPlayerId)
+    if (myPlayerData && myPlayerData.hasSetName === false) {
+      needsNameSetup.value = true
+      nameSetupError.value = null
+    }
 
     saveSession()
   }
@@ -366,6 +400,17 @@ export function useOnlineGame() {
     error.value = null
   }
 
+  function handlePlayerNameSet(data: PlayerNameSetPayload): void {
+    console.log('[OnlineGame] Player name set:', data.name)
+    needsNameSetup.value = false
+    nameSetupError.value = null
+  }
+
+  function handlePlayerNameError(data: PlayerNameErrorPayload): void {
+    console.log('[OnlineGame] Player name error:', data.code, data.message)
+    nameSetupError.value = data.message
+  }
+
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
@@ -387,23 +432,28 @@ export function useOnlineGame() {
 
   /**
    * Create a new room as host
+   * @param hostName - The host's display name
+   * @param hostSpectating - If true, host starts as spectator (watching, not playing)
+   * @param allowSpectators - If true, other players can join as spectators
    */
   async function createRoom(
     hostName: string,
-    gameRules: GameRules = {
-      winLength: 4,
-      maxPlayers: 20,
-      allowSpectators: true,
-    }
+    hostSpectating: boolean = false,
+    allowSpectators: boolean = true
   ): Promise<void> {
     isLoading.value = true
     error.value = null
 
     emit('host:create_room', {
       hostName,
-      rules: gameRules,
-      allowSpectators: gameRules.allowSpectators,
-      maxPlayers: gameRules.maxPlayers,
+      hostSpectating,
+      allowSpectators,
+      maxPlayers: 20,
+      rules: {
+        winLength: 4,
+        maxPlayers: 20,
+        allowSpectators,
+      },
     })
   }
 
@@ -487,6 +537,67 @@ export function useOnlineGame() {
       roomCode: roomCode.value,
       aiPlayerId,
     })
+  }
+
+  /**
+   * Toggle host between playing and spectating (host only)
+   */
+  function toggleHostSpectate(becomeSpectator: boolean): void {
+    if (!roomCode.value || !isHost.value) return
+
+    emit('host:toggle_spectate', {
+      roomCode: roomCode.value,
+      becomeSpectator,
+    })
+  }
+
+  /**
+   * Update room rules (host only)
+   */
+  function updateRules(rulesUpdate: Partial<GameRules>): void {
+    if (!roomCode.value || !isHost.value) return
+
+    emit('host:update_rules', {
+      roomCode: roomCode.value,
+      rules: rulesUpdate,
+    })
+  }
+
+  /**
+   * Return to lobby from ROUND_RESULTS phase (host only)
+   * Allows new players to join and host to configure before next game
+   */
+  function returnToLobby(): void {
+    if (!roomCode.value || !isHost.value) return
+    if (roomPhase.value !== 'ROUND_RESULTS' && roomPhase.value !== 'COMPLETED') return
+
+    emit('host:return_to_lobby', {
+      roomCode: roomCode.value,
+    })
+  }
+
+  /**
+   * Set the player's name (for players who joined with placeholder names)
+   */
+  function setPlayerName(name: string, asSpectator: boolean): void {
+    if (!roomCode.value || !playerId.value) return
+
+    nameSetupError.value = null
+
+    emit('player:set_name', {
+      roomCode: roomCode.value,
+      playerId: playerId.value,
+      name,
+      asSpectator,
+    })
+  }
+
+  /**
+   * Dismiss the name setup popup (keep placeholder name)
+   */
+  function dismissNameSetup(): void {
+    needsNameSetup.value = false
+    nameSetupError.value = null
   }
 
   /**
@@ -582,6 +693,8 @@ export function useOnlineGame() {
     error.value = null
     isLoading.value = false
     pendingMove.value = null
+    needsNameSetup.value = false
+    nameSetupError.value = null
   }
 
   /**
@@ -655,11 +768,17 @@ export function useOnlineGame() {
     isGameOver,
     isCurrentPlayerAI,
     isAIThinking,
+    isHostSpectating,
+    canHostRejoin,
 
     // UI state
     error,
     isLoading,
     pendingMove,
+
+    // Name setup state
+    needsNameSetup,
+    nameSetupError,
 
     // Actions
     initialize,
@@ -670,6 +789,11 @@ export function useOnlineGame() {
     submitMove,
     addAI,
     removeAI,
+    toggleHostSpectate,
+    updateRules,
+    returnToLobby,
+    setPlayerName,
+    dismissNameSetup,
     attemptReconnect,
     destroy,
   }
