@@ -64,7 +64,7 @@ interface GameRecord {
 // Constants
 // =============================================================================
 
-const MODELS_DIR = path.join(__dirname, '../../models')
+const MODELS_DIR = path.join(__dirname, '../../models/tictactoe-ai')
 const DEFAULT_CONFIG: QLearningConfig = {
   learningRate: 0.3,
   discountFactor: 0.95,
@@ -108,6 +108,27 @@ class QLearningEngine {
     return path.join(MODELS_DIR, `qlearning-${playerCount}p.json`)
   }
 
+  private findModelFile(playerCount: number): string | null {
+    try {
+      const files = fs.readdirSync(MODELS_DIR)
+      // Match pattern: qlearning-{n}p-{games}games.json
+      const pattern = new RegExp(`^qlearning-${playerCount}p-\\d+games\\.json$`)
+      const match = files.find(f => pattern.test(f))
+      return match ? path.join(MODELS_DIR, match) : null
+    } catch {
+      return null
+    }
+  }
+
+  private getEffectivePlayerCount(playerCount: number): number {
+    return Math.min(Math.max(playerCount, 2), 10)
+  }
+
+  private extractGamesFromFilename(filename: string): number {
+    const match = filename.match(/(\d+)games\.json$/)
+    return match ? parseInt(match[1], 10) : 0
+  }
+
   private loadAllModels(): void {
     console.log('[Q-Learning] Loading models...')
 
@@ -118,45 +139,113 @@ class QLearningEngine {
   }
 
   private loadModel(playerCount: number): boolean {
-    const modelPath = this.getModelPath(playerCount)
+    // First try new format: qlearning-{n}p-{games}games.json
+    let modelPath = this.findModelFile(playerCount)
+
+    // Fall back to old format: qlearning-{n}p.json
+    if (!modelPath) {
+      const oldPath = this.getModelPath(playerCount)
+      if (fs.existsSync(oldPath)) {
+        modelPath = oldPath
+      }
+    }
+
+    if (!modelPath) {
+      // Initialize empty model
+      this.qTables.set(playerCount, new Map())
+      this.stats.set(playerCount, {
+        gamesPlayed: 0,
+        gamesWon: 0,
+        gamesLost: 0,
+        gamesDraw: 0,
+        totalMoves: 0,
+        qTableSize: 0,
+        onlineGamesLearned: 0
+      })
+      this.configs.set(playerCount, { ...DEFAULT_CONFIG, playerCount })
+      console.log(`[Q-Learning] ⚠️ No model found for ${playerCount}p, starting fresh`)
+      return false
+    }
 
     try {
-      if (fs.existsSync(modelPath)) {
-        const data = fs.readFileSync(modelPath, 'utf-8')
-        const model: SavedModel = JSON.parse(data)
+      const data = fs.readFileSync(modelPath, 'utf-8')
+      const model = JSON.parse(data)
+      const qTable = new Map<string, QTableEntry>()
 
-        // Convert plain object to Map
-        const qTable = new Map<string, QTableEntry>()
+      // Detect format: array = new format, object = old format
+      if (Array.isArray(model.qTable)) {
+        // New format: [["state::action", { value, visits }], ...]
+        for (const entry of model.qTable) {
+          const [key, valueObj] = entry
+          // Key format: "state::action" - split by last "::"
+          const lastSeparator = key.lastIndexOf('::')
+          if (lastSeparator === -1) continue
+
+          const state = key.substring(0, lastSeparator)
+          const action = key.substring(lastSeparator + 2)
+          const value = typeof valueObj === 'object' ? valueObj.value : valueObj
+
+          if (!qTable.has(state)) {
+            qTable.set(state, {})
+          }
+          qTable.get(state)![action] = value
+        }
+
+        // Extract games count from filename for stats
+        const gamesCount = this.extractGamesFromFilename(modelPath)
+
+        this.qTables.set(playerCount, qTable)
+        this.stats.set(playerCount, {
+          gamesPlayed: gamesCount,
+          gamesWon: 0,
+          gamesLost: 0,
+          gamesDraw: 0,
+          totalMoves: 0,
+          qTableSize: qTable.size,
+          onlineGamesLearned: 0
+        })
+        this.configs.set(playerCount, { ...DEFAULT_CONFIG, playerCount })
+
+        console.log(`[Q-Learning] ✅ Loaded ${playerCount}p model (new format): ${gamesCount} games, ${qTable.size} states`)
+      } else {
+        // Old format: { state: { action: value } }
         for (const [state, actions] of Object.entries(model.qTable)) {
-          qTable.set(state, actions)
+          qTable.set(state, actions as QTableEntry)
         }
 
         this.qTables.set(playerCount, qTable)
-        this.stats.set(playerCount, model.stats)
-        this.configs.set(playerCount, model.config)
+        this.stats.set(playerCount, model.stats || {
+          gamesPlayed: 0,
+          gamesWon: 0,
+          gamesLost: 0,
+          gamesDraw: 0,
+          totalMoves: 0,
+          qTableSize: qTable.size,
+          onlineGamesLearned: 0
+        })
+        this.configs.set(playerCount, model.config || { ...DEFAULT_CONFIG, playerCount })
 
-        console.log(`[Q-Learning] ✅ Loaded ${playerCount}p model: ${model.stats.gamesPlayed} games, ${qTable.size} states`)
-        return true
+        console.log(`[Q-Learning] ✅ Loaded ${playerCount}p model: ${model.stats?.gamesPlayed || 0} games, ${qTable.size} states`)
       }
+
+      return true
     } catch (e) {
       console.error(`[Q-Learning] ❌ Failed to load ${playerCount}p model:`, e)
+
+      // Initialize empty model on error
+      this.qTables.set(playerCount, new Map())
+      this.stats.set(playerCount, {
+        gamesPlayed: 0,
+        gamesWon: 0,
+        gamesLost: 0,
+        gamesDraw: 0,
+        totalMoves: 0,
+        qTableSize: 0,
+        onlineGamesLearned: 0
+      })
+      this.configs.set(playerCount, { ...DEFAULT_CONFIG, playerCount })
+      return false
     }
-
-    // Initialize empty model
-    this.qTables.set(playerCount, new Map())
-    this.stats.set(playerCount, {
-      gamesPlayed: 0,
-      gamesWon: 0,
-      gamesLost: 0,
-      gamesDraw: 0,
-      totalMoves: 0,
-      qTableSize: 0,
-      onlineGamesLearned: 0
-    })
-    this.configs.set(playerCount, { ...DEFAULT_CONFIG, playerCount })
-
-    console.log(`[Q-Learning] ⚠️ No model found for ${playerCount}p, starting fresh`)
-    return false
   }
 
   saveModel(playerCount: number): boolean {
@@ -169,11 +258,14 @@ class QLearningEngine {
       return false
     }
 
-    // Convert Map to plain object for JSON
+    // Convert Map to plain object for JSON (efficient nested format)
     const qTableObj: Record<string, QTableEntry> = {}
     for (const [state, actions] of qTable.entries()) {
       qTableObj[state] = actions
     }
+
+    // Calculate total games for filename
+    const totalGames = stats.gamesPlayed + stats.onlineGamesLearned
 
     const model: SavedModel = {
       qTable: qTableObj,
@@ -184,9 +276,25 @@ class QLearningEngine {
     }
 
     try {
-      const modelPath = this.getModelPath(playerCount)
-      fs.writeFileSync(modelPath, JSON.stringify(model), 'utf-8')
-      console.log(`[Q-Learning] ✅ Saved ${playerCount}p model: ${stats.gamesPlayed} games, ${qTable.size} states, ${stats.onlineGamesLearned} online games learned`)
+      // New filename with game count
+      const newModelPath = path.join(MODELS_DIR, `qlearning-${playerCount}p-${totalGames}games.json`)
+
+      // Find old file - only delete if our data is actually newer/better
+      const oldModelPath = this.findModelFile(playerCount)
+      if (oldModelPath && oldModelPath !== newModelPath && fs.existsSync(oldModelPath)) {
+        // Check if old file has more games (don't delete better models!)
+        const oldGames = this.extractGamesFromFilename(oldModelPath)
+        if (totalGames >= oldGames) {
+          fs.unlinkSync(oldModelPath)
+          console.log(`[Q-Learning] Removed old model file: ${path.basename(oldModelPath)}`)
+        } else {
+          console.log(`[Q-Learning] Keeping existing model (${oldGames} games > ${totalGames} games in memory)`)
+          return true // Don't overwrite with less data
+        }
+      }
+
+      fs.writeFileSync(newModelPath, JSON.stringify(model), 'utf-8')
+      console.log(`[Q-Learning] ✅ Saved ${playerCount}p model: ${totalGames} games, ${qTable.size} states (${stats.onlineGamesLearned} learned online)`)
       return true
     } catch (e) {
       console.error(`[Q-Learning] ❌ Failed to save ${playerCount}p model:`, e)
@@ -298,9 +406,11 @@ class QLearningEngine {
 
   getBestMove(gameState: GameState): { row: number; col: number } | null {
     const { board, currentPlayerIndex, players } = gameState
-    const playerCount = players.length
+    const rawPlayerCount = players.length
+    // Cap at 10 players - use 10p model for games with more players
+    const playerCount = this.getEffectivePlayerCount(rawPlayerCount)
 
-    const state = this.encodeState(board, currentPlayerIndex, playerCount)
+    const state = this.encodeState(board, currentPlayerIndex, rawPlayerCount)
     const validActions = this.getValidActions(board)
 
     if (validActions.length === 0) return null
@@ -343,9 +453,12 @@ class QLearningEngine {
     col: number,
     currentPlayerIndex: number,
     symbol: PlayerSymbol,
-    playerCount: number
+    rawPlayerCount: number
   ): void {
-    // Find or create current game record
+    // Cap at 10 players for model lookup
+    const playerCount = this.getEffectivePlayerCount(rawPlayerCount)
+
+    // Find or create current game record (use effective playerCount)
     let gameRecord = this.pendingGames.find(g =>
       g.playerCount === playerCount &&
       Date.now() - g.timestamp < 30 * 60 * 1000  // Within 30 minutes
@@ -361,7 +474,7 @@ class QLearningEngine {
       this.pendingGames.push(gameRecord)
     }
 
-    const state = this.encodeState(board, currentPlayerIndex, playerCount)
+    const state = this.encodeState(board, currentPlayerIndex, rawPlayerCount)
     const action = this.encodeAction(row, col)
 
     gameRecord.moves.push({
@@ -375,10 +488,13 @@ class QLearningEngine {
   }
 
   learnFromCompletedGame(
-    playerCount: number,
+    rawPlayerCount: number,
     winner: PlayerSymbol | null,
     finalBoard: string[][]
   ): void {
+    // Cap at 10 players for model lookup
+    const playerCount = this.getEffectivePlayerCount(rawPlayerCount)
+
     // Find the game record
     const gameIndex = this.pendingGames.findIndex(g => g.playerCount === playerCount)
     if (gameIndex === -1) {
