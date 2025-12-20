@@ -81,9 +81,11 @@ Then open `http://<YOUR_IP>:3001` on your phone or other devices.
 
 ```
 app/                    # Frontend (Nuxt/Vue)
+├── pages/              # Nuxt pages (file-based routing)
+│   ├── index.vue       # Home page with StartMenu
+│   └── game/[roomCode].vue  # Online game room
 ├── components/         # Vue components
-│   ├── TicTacToe.vue   # Main game shell
-│   ├── StartMenu.vue   # Game configuration
+│   ├── StartMenu.vue   # Host/Join game selection
 │   ├── OnlineLobby.vue # Room lobby
 │   └── OnlineGameBoard.vue  # Game board
 ├── composables/        # Vue composables

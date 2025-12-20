@@ -119,19 +119,22 @@ On mobile devices:
 
 ```
 app/                           # Frontend (Nuxt/Vue)
-├── app.vue                    # Entry point - renders SnowEffect + TicTacToe
+├── app.vue                    # Entry point - renders SnowEffect + NuxtPage
+├── pages/
+│   ├── index.vue              # Home page with StartMenu
+│   └── game/[roomCode].vue    # Dynamic route for online games
 ├── assets/styles/
 │   └── design-system.css      # CSS variables, themes, and global styles
 ├── components/
-│   ├── TicTacToe.vue          # Main game shell with start menu/game board transitions
-│   ├── StartMenu.vue          # Game configuration (players, modes, rules, settings)
-│   ├── GameBoard.vue          # Core game logic, board rendering, win detection
+│   ├── StartMenu.vue          # Host/Join game selection, room creation
+│   ├── OnlineLobby.vue        # Room lobby, player list, game mode selection
 │   ├── OnlineGameBoard.vue    # Online multiplayer game board
-│   ├── OnlineLobby.vue        # Online game lobby and room management
-│   ├── PlayerTurnBar.vue      # Minimalistic player turn indicator
-│   ├── CharacterPicker.vue    # Player symbol selection component
-│   ├── GameModeCatalog.vue    # Browse available game mode presets
-│   ├── GameModeSelector.vue   # Game mode selection UI
+│   ├── OnlineResults.vue      # Game results and scoreboard
+│   ├── PlayerTurnBar.vue      # Current player turn indicator
+│   ├── GameModeParliament.vue # Game mode selection UI
+│   ├── HelpModal.vue          # Help/instructions modal
+│   ├── OnlineSettingsPopup.vue # Online game settings
+│   ├── SoundSettingsPopup.vue # Sound settings
 │   ├── HolidayBackground.vue  # Christmas theme background image
 │   ├── SnowEffect.vue         # Falling snow animation (Christmas theme)
 │   └── icons/                 # SVG icon components
@@ -173,12 +176,12 @@ shared/                        # Shared Types
 ### Key Implementation Details
 
 #### Component Hierarchy
-1. **app.vue** - Mounts SnowEffect and TicTacToe
-2. **TicTacToe.vue** - Manages game state (started/not started), renders StartMenu or GameBoard/OnlineLobby
-3. **StartMenu.vue** - Online game setup: Host/Join selection, host name, role (Play/Spectate), allow spectators
-4. **OnlineLobby.vue** - Room lobby: player list, game mode selection (host only), character picker, start game
-5. **OnlineGameBoard.vue** - Online multiplayer game board with real-time sync
-6. **GameBoard.vue** - Handles local game logic, board expansion, win detection, move history
+1. **app.vue** - Mounts SnowEffect and NuxtPage (page-based routing)
+2. **pages/index.vue** - Home page with StartMenu for Host/Join selection
+3. **pages/game/[roomCode].vue** - Dynamic route that renders OnlineLobby or OnlineGameBoard
+4. **StartMenu.vue** - Online game setup: Host/Join selection, host name, role (Play/Spectate), allow spectators
+5. **OnlineLobby.vue** - Room lobby: player list, game mode selection (host only), start game
+6. **OnlineGameBoard.vue** - Online multiplayer game board with real-time sync
 
 #### Online Game Flow
 1. **StartMenu**: Host enters name, chooses role (Play/Spectate), toggles Allow Spectators → Creates room
