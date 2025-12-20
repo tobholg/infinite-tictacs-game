@@ -279,16 +279,18 @@ class QLearningEngine {
       // New filename with game count
       const newModelPath = path.join(MODELS_DIR, `qlearning-${playerCount}p-${totalGames}games.json`)
 
-      // Find old file - only delete if our data is actually newer/better
+      // Find old file - only delete if our data has more states (actual knowledge)
       const oldModelPath = this.findModelFile(playerCount)
       if (oldModelPath && oldModelPath !== newModelPath && fs.existsSync(oldModelPath)) {
-        // Check if old file has more games (don't delete better models!)
-        const oldGames = this.extractGamesFromFilename(oldModelPath)
-        if (totalGames >= oldGames) {
+        // Compare file sizes - larger file = more data
+        const oldFileSize = fs.statSync(oldModelPath).size
+        const newDataSize = JSON.stringify(model).length
+
+        if (newDataSize >= oldFileSize) {
           fs.unlinkSync(oldModelPath)
-          console.log(`[Q-Learning] Removed old model file: ${path.basename(oldModelPath)}`)
+          console.log(`[Q-Learning] Removed old model file: ${path.basename(oldModelPath)} (${oldFileSize} bytes < ${newDataSize} bytes)`)
         } else {
-          console.log(`[Q-Learning] Keeping existing model (${oldGames} games > ${totalGames} games in memory)`)
+          console.log(`[Q-Learning] Keeping existing model file (${oldFileSize} bytes > ${newDataSize} bytes in memory)`)
           return true // Don't overwrite with less data
         }
       }
