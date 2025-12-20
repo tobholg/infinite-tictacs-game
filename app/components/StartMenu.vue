@@ -18,6 +18,7 @@
         <section class="bg-surface border border-border rounded-lg py-3 px-4 bg-gradient-to-br from-surface to-[rgba(99,102,241,0.05)]">
           <div class="mb-3 text-center">
             <h1 class="m-0 heading-display">Infinite Tic-Tacs</h1>
+            <p class="catchphrase">{{ randomCatchphrase.before }}<span class="highlight">{{ randomCatchphrase.highlight }}</span>{{ randomCatchphrase.after }}</p>
             <p class="mt-1 mb-0 text-sm text-text-tertiary">Play with friends via room code</p>
           </div>
           <div class="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
@@ -64,6 +65,12 @@
             </div>
           </section>
         </Transition>
+
+        <!-- Development Notice -->
+        <p class="dev-notice">
+          Under active development. Found a bug?
+          <a href="mailto:infinitegames.dev1@gmail.com">Let me know!</a>
+        </p>
       </div>
 
       <!-- Stage: Host Setup -->
@@ -242,6 +249,16 @@ const joinFormExpanded = ref(false)
 const joinCode = ref('')
 const hostName = ref('')
 
+// Catchphrases - random one shown on each page load
+const catchphrases = [
+  { before: 'Tic-tac-toe, but ', highlight: 'infinitely', after: ' more fun' },
+  { before: 'Think big. Play ', highlight: 'infinite', after: '.' },
+  { before: 'The ', highlight: 'infinite', after: ' playground of strategy' },
+  { before: 'Where every game is ', highlight: 'infinitely', after: ' unique' },
+  { before: 'No limits. ', highlight: 'Infinite', after: ' possibilities.' },
+]
+const randomCatchphrase = catchphrases[Math.floor(Math.random() * catchphrases.length)]
+
 // Stage navigation
 function selectHostMode() {
   playSound('buttonClick')
@@ -331,5 +348,40 @@ const handleJoinRoom = () => {
     0 8px 20px rgba(99, 102, 241, 0.25),
     0 0 0 2px rgba(99, 102, 241, 0.2) !important;
   transform: translateY(-2px) !important;
+}
+
+/* Catchphrase styles */
+.catchphrase {
+  margin-top: var(--space-2);
+  margin-bottom: 0;
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.catchphrase .highlight {
+  color: var(--color-accent);
+  font-weight: 600;
+  font-style: normal;
+  text-shadow: 0 0 8px rgba(0, 217, 255, 0.6), 0 0 16px rgba(0, 217, 255, 0.4);
+}
+
+/* Development notice */
+.dev-notice {
+  margin-top: var(--space-4);
+  margin-bottom: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  text-align: center;
+}
+
+.dev-notice a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.dev-notice a:hover {
+  color: var(--color-accent-strong);
 }
 </style>
