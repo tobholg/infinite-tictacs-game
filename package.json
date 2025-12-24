@@ -5,7 +5,7 @@
   "scripts": {
     "build": "nuxt build",
     "build:prod": "npm run generate && npm run server:build && npm run copy:static",
-    "copy:static": "cp -r .output/public server/public",
+    "copy:static": "mkdir -p server/dist/server && cp -r .output/public server/dist/server/public",
     "dev": "nuxt dev",
     "dev:host": "nuxt dev --host",
     "dev:all": "concurrently \"npm run dev\" \"npm run server:dev\"",
