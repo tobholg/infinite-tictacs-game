@@ -1,0 +1,19 @@
+name: infinite-tictacs
+region: ams
+services:
+  - name: web
+    github:
+      repo: tobholg/infinite-tictacs-game
+      branch: feature/EBS
+      deploy_on_push: true
+    build_command: npm install && npm run server:install && npm run build:prod
+    run_command: npm start
+    environment_slug: node-js
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    http_port: 8080
+    envs:
+      - key: PORT
+        value: "8080"
+      - key: NODE_ENV
+        value: "production"

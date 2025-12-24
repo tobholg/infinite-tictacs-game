@@ -6,6 +6,11 @@ import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import cors from 'cors'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 import type {
   ClientToServerEvents,
@@ -21,16 +26,16 @@ import { setupSocketHandlers, startTimeoutChecker, stopTimeoutChecker } from './
 // Environment Configuration
 // -----------------------------------------------------------------------------
 
-const PORT = parseInt(process.env.PORT || '3002', 10)
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3001'
+const PORT = parseInt(process.env.PORT || '3011', 10)
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3010'
 const ROOM_IDLE_TTL_MINUTES = parseInt(process.env.ROOM_IDLE_TTL_MINUTES || '15', 10)
 
 // Allow connections from localhost and local network IPs
 const ALLOWED_ORIGINS = [
   CLIENT_URL,
-  'http://192.168.137.146:3001',
-  /^http:\/\/192\.168\.\d+\.\d+:3001$/,  // Any 192.168.x.x:3001
-  /^http:\/\/10\.\d+\.\d+\.\d+:3001$/,   // Any 10.x.x.x:3001
+  /^http:\/\/localhost:30\d{2}$/,        // Any localhost:30xx port
+  /^http:\/\/192\.168\.\d+\.\d+:30\d{2}$/,  // Any 192.168.x.x:30xx
+  /^http:\/\/10\.\d+\.\d+\.\d+:30\d{2}$/,   // Any 10.x.x.x:30xx
 ]
 
 // -----------------------------------------------------------------------------
@@ -73,6 +78,25 @@ app.get('/ai-stats', (_req, res) => {
   }).catch(() => {
     res.json({ models: {}, error: 'AI module not loaded' })
   })
+})
+
+// -----------------------------------------------------------------------------
+// Static File Serving (Production)
+// -----------------------------------------------------------------------------
+
+// In production, static files are copied to server/public
+// In dev with tsx, __dirname is server/src, so ../public
+// After build, __dirname is server/dist, so ../public
+const staticPath = path.join(__dirname, '../public')
+app.use(express.static(staticPath))
+
+// SPA fallback - serve index.html for all non-API routes
+app.get('*', (req, res, next) => {
+  // Skip API routes and socket.io
+  if (req.path.startsWith('/health') || req.path.startsWith('/stats') || req.path.startsWith('/ai-stats') || req.path.startsWith('/socket.io')) {
+    return next()
+  }
+  res.sendFile(path.join(staticPath, 'index.html'))
 })
 
 // Create Socket.IO server with typed events

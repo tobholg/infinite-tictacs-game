@@ -1,15 +1,19 @@
 {
-  "name": "nuxt-app",
+  "name": "infinite-tictacs",
   "type": "module",
   "private": true,
   "scripts": {
     "build": "nuxt build",
+    "build:prod": "npm run generate && npm run server:build && npm run copy:static",
+    "copy:static": "cp -r .output/public server/public",
     "dev": "nuxt dev",
     "dev:host": "nuxt dev --host",
     "dev:all": "concurrently \"npm run dev\" \"npm run server:dev\"",
     "dev:all:host": "concurrently \"npm run dev:host\" \"npm run server:dev\"",
     "server:dev": "cd server && npm run dev",
+    "server:build": "cd server && npm run build",
     "server:install": "cd server && npm install",
+    "start": "cd server && npm start",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"

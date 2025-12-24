@@ -15,11 +15,17 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>
 // Default socket URL - dynamically use current hostname to support network access
 function getDefaultSocketUrl(): string {
   if (typeof window === 'undefined') {
-    return 'http://localhost:3002'
+    return 'http://localhost:3011'
   }
-  // Use the same host as the page, but on port 3002
+
+  // In production, use same origin (server serves both frontend and socket.io)
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return window.location.origin
+  }
+
+  // Local dev: use port 3011 for the socket server
   const host = window.location.hostname
-  return `http://${host}:3002`
+  return `http://${host}:3011`
 }
 
 // =============================================================================
